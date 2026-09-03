@@ -399,10 +399,12 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       await ref.read(listingRepositoryProvider).createListing(listing);
       ref.invalidate(marketplaceListingsProvider);
       if (!mounted) return;
+      // Reset the form so the previous entry can't linger or be re-submitted.
+      _resetForm();
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(content: Text('Listing published')),
+          const SnackBar(content: Text('Listing posted')),
         );
       context.go('/browse');
     } catch (_) {
@@ -412,6 +414,35 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         const SnackBar(content: Text("Couldn't publish — try again")),
       );
     }
+  }
+
+  /// Clears every field back to its default after a successful post.
+  void _resetForm() {
+    _formKey.currentState?.reset();
+    _title.clear();
+    _quantity.clear();
+    _minOrder.text = '1';
+    _price.clear();
+    _address.clear();
+    _city.text = 'Atlanta';
+    _state.text = 'GA';
+    _zip.clear();
+    _notes.clear();
+    setState(() {
+      _type = PalletType.standardWooden;
+      _size = PalletSize.s48x40;
+      _condition = PalletCondition.usedGood;
+      _isFree = false;
+      _pickup = true;
+      _delivery = false;
+      _exchange = false;
+      _forklift = false;
+      _loadingDock = false;
+      _stackable = true;
+      _active = true;
+      _photos.clear();
+      _saving = false;
+    });
   }
 
   String _contentTypeFor(String ext) {

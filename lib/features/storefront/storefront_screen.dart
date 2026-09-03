@@ -16,6 +16,7 @@ class StorefrontScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileByIdProvider(profileId));
     final listingsAsync = ref.watch(sellerActiveListingsProvider(profileId));
+    final isOwnStorefront = ref.watch(currentUserProvider).id == profileId;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Storefront')),
@@ -64,7 +65,8 @@ class StorefrontScreen extends ConsumerWidget {
           );
         },
       ),
-      bottomNavigationBar: profileAsync.valueOrNull == null
+      // No "Special Request to yourself" on your own storefront.
+      bottomNavigationBar: (profileAsync.valueOrNull == null || isOwnStorefront)
           ? null
           : SafeArea(
               minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),

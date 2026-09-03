@@ -82,7 +82,21 @@ class YouScreen extends ConsumerWidget {
                   size: 20, color: AppColors.textMuted),
               onTap: () => context.push('/admin'),
             ),
-          _MenuItem(icon: Icons.storefront_outlined, label: 'My storefront'),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading:
+                const Icon(Icons.storefront_outlined, color: AppColors.textMuted),
+            title: const Text(
+              'My storefront',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right,
+                size: 20, color: AppColors.textMuted),
+            onTap: () => context.push('/profile/${me.id}'),
+          ),
           _MenuItem(icon: Icons.settings_outlined, label: 'Settings'),
           _MenuItem(icon: Icons.help_outline, label: 'Help & support'),
           _MenuItem(

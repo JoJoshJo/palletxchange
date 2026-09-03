@@ -54,9 +54,11 @@ A prior **Base44 web prototype exists but is throwaway**: `localStorage` only, n
 
 **Sign up → choose one: Individual, Warehouse, or Driver.**
 
-- **Individual & Warehouse = TRADERS.** Both post to sell *and* browse to buy — same screens. Warehouse additionally gets the verified-business badge, **bulk upload**, and inventory/analytics tools.
-- **Driver = SERVICE account.** No marketplace; lands on a **job board** of delivery gigs.
+- **Individual & Warehouse = TRADERS.** Both **buy and sell freely** — same screens, no gate. **Anyone can list to sell immediately; there is NO "verify before selling" requirement** (this supersedes any earlier "must be verified before listing" note). Warehouse additionally gets **bulk upload** and inventory/analytics tools.
+- **Driver = SERVICE account.** Job board **only** — a driver **cannot buy or sell** on the marketplace.
 - **Admin = GRANTED privilege**, never a signup choice. Flagged on an account after the fact (`is_admin`). Oversight panel: verify businesses, remove listings, resolve reports.
+
+**Verification (`verified_status` ✓) is a TRUST BADGE only** — it is *never* a gate on listing, buying, or selling. It signals trust on the card/storefront; it grants no permission.
 
 **Recyclable is NOT an actor** — it's a listing *condition* (Damaged / Scrap) surfaced through a marketplace filter.
 
@@ -101,7 +103,8 @@ report_status:    open | resolved
 ### Tables (field : type — notes)
 
 **profiles** (id = auth UID)
-`id` uuid PK · `name` · `email` · `phone` · `business_name` · `account_type` enum · `is_admin` bool (default false, granted) · `address/city/state/zip` · `latitude/longitude` double · `verified_status` bool (default false) · `rating` numeric **(computed from reviews)** · `created_at`.
+`id` uuid PK · `name` · `email` · `phone` · `business_name` · `account_type` enum · `is_admin` bool (default false, granted) · `address/city/state/zip` · `latitude/longitude` double · `verified_status` bool (default false) **(trust badge only — never a gate)** · `rating` numeric **(computed from reviews)** · `created_at`.
+- **Driver vetting fields** (used only when `account_type = driver`): `driver_license_url` text null · `driver_insurance_url` text null (Storage URLs) · `driver_approved` bool (default false). **A driver must submit license + insurance and be `driver_approved` by an admin before they can CLAIM any job.** Unapproved drivers may see the job board but cannot claim.
 
 **listings**
 `id` uuid PK · `seller_id` → profiles · `title` · `pallet_type` enum · `pallet_size` enum · `condition` enum · `quantity_available` int · `min_order_quantity` int (default 1) · `price_per_pallet` numeric · `is_free` bool · `exchange_allowed` bool · `pickup_available` bool · `delivery_available` bool · `address/city/state/zip` · `latitude/longitude` double · `loading_dock_available` bool · `forklift_available` bool · `stackable` bool · `photos` text[] **(Storage URLs)** · `notes` · `status` enum (default active) · `unavailable_since` timestamptz null **(drives 24h auto-archive)** · `expires_at` timestamptz · `created_at`.
@@ -110,7 +113,7 @@ report_status:    open | resolved
 `id` uuid PK · `buyer_id` → profiles · `target_seller_id` → profiles **null (null = broadcast to market; set = special request to one seller)** · `pallet_type_needed` enum · `pallet_size_needed` enum · `quantity_needed` int · `preferred_condition` enum · `max_price` numeric null · `pickup_or_delivery` (pickup|delivery) · `needed_by_date` date · `location` · `notes` · `status` enum (default open) · `created_at`.
 
 **deals** (was `transactions`)
-`id` uuid PK · `listing_id` → listings · `buyer_id` → profiles · `seller_id` → profiles · `driver_id` → profiles null · `quantity` int · `price_per_pallet` numeric · `total_price` numeric **(= quantity × price_per_pallet)** · `fulfillment_method` (pickup|delivery) · `delivery_address` null · `delivery_fee` numeric (default 0, seller-quoted) · `payment_status` enum · `deal_status` enum (default pending) · `pickup_time` timestamptz null · `completed_at` timestamptz null **(set on completion)** · `notes` · `created_at`.
+`id` uuid PK · `listing_id` → listings · `buyer_id` → profiles · `seller_id` → profiles · `driver_id` → profiles null · `quantity` int · `price_per_pallet` numeric · `total_price` numeric **(= quantity × price_per_pallet)** · `fulfillment_method` (pickup|delivery) · `delivery_address` null · `delivery_fee` numeric (default 0, seller-quoted) · `delivery_paid_by` (buyer|seller) — **who pays the delivery fee, DECIDED PER DEAL (buyer or seller), not a global rule; null until set** · `payment_status` enum · `deal_status` enum (default pending) · `pickup_time` timestamptz null · `completed_at` timestamptz null **(set on completion)** · `notes` · `created_at`.
 
 **messages**
 `id` uuid PK · `conversation_id` · `sender_id` → profiles · `receiver_id` → profiles · `listing_id` → listings null · `deal_id` → deals null · `request_id` → requests null **(thread ties to whichever started it)** · `body` · `read_status` bool (default false) · `created_at`.
@@ -153,7 +156,11 @@ report_status:    open | resolved
 
 **Availability rule:** seller sets a listing **Active / Unavailable / Remove**. Unavailable → hidden from marketplace + storefront immediately, restorable, with a 24h countdown; after 24h → auto-archived (re-listable), unless an active deal is attached. Remove → archived immediately. Nothing tied to a live deal disappears.
 
-**Pricing (off-platform):** `total_price = quantity × price_per_pallet`. `payment_status = not_required` if free, else `unpaid`. Money is settled off-platform; parties mark `paid`. No processing.
+**Pricing:** `total_price = quantity × price_per_pallet`. `payment_status = not_required` if free, else `unpaid`; parties mark `paid`. The app **records** the agreed price + payment status — **how money actually moves is PARKED (see §10)**. No payment processing built now.
+
+**Delivery fee payer:** `delivery_paid_by` is chosen **per deal** (buyer or seller), set on the deal — there is no fixed global rule.
+
+**Driver job assignment:** **first-come "claim"** model at launch — any *approved* driver claims an open job. *(Closest-driver auto-assign is a LATER enhancement.)* A driver must be `driver_approved` (license + insurance on file, admin-approved) before claiming.
 
 **Marketplace filters:** search (title/city/state/type) · type · size · condition · recyclable (condition = Damaged/Scrap) · free-only · delivery-only · max price · distance radius. Only `status = active` shown.
 
@@ -176,9 +183,9 @@ report_status:    open | resolved
 
 **Warehouse extra:** **Bulk upload** (CSV/Excel, native file picker) + inventory tools. *(Bulk is a desktop-leaning workflow; a thin warehouse web companion is a likely later add.)*
 
-**Driver:** **Job board** — open delivery jobs → accept → pickup + drop-off addresses → status (picked_up → in_transit → delivered) → **proof photos** → earnings.
+**Driver:** **Job board (service account only — no buy/sell)** — **onboarding: submit license + insurance, await admin approval (`driver_approved`) before claiming.** Then: open delivery jobs → **claim (first-come)** → pickup + drop-off addresses → status (picked_up → in_transit → delivered) → **proof photos** → earnings.
 
-**Admin:** panel — users, listings (remove), reports (resolve), verify businesses, analytics.
+**Admin:** panel — users, listings (remove), reports (resolve → warn/remove/ban), **verify businesses (badge)**, **approve drivers (license/insurance)**, analytics.
 
 **Shared:** notifications, settings, edit profile, **block/report user**, account deletion.
 
@@ -196,9 +203,9 @@ report_status:    open | resolved
 
 ## 10. Payment & revenue
 
-**Off-platform payment.** The app matches parties, opens the deal, and records the agreed price + `payment_status` (unpaid/paid); the two businesses **settle themselves** (invoice / PO / cash on pickup). No Stripe, no held funds, no payouts. **Buyers never pay a fee.** This matches how pallet B2B actually pays and keeps Apple/Google out of the revenue.
+**Payment mechanism = PARKED / undecided.** The app **records** the agreed price + a `payment_status` (unpaid/paid) on each deal, and parties mark it paid. **HOW money actually moves — off-platform (invoice / PO / cash on pickup) vs. in-app card vs. both — is an OPEN decision to revisit later.** **Do NOT build any payment processing now (no Stripe, no held funds, no payouts).** Structure the data so a payment method can slot in later without a schema rewrite.
 
-**Revenue = CLIENT DECISION** (see Open Decisions). Monetize the **sell side later** — a completion fee (industry norm ~6% on completed deals) *or* a warehouse subscription. Billed separately; **not built yet.**
+**Revenue = FREE at launch.** No fees, no subscriptions, no boosted/featured listings are built now. **Structure data so they can slot in later** — the following are **FUTURE, not launch:** a **seller completion fee** (industry norm ~6% on completed deals), a **warehouse subscription**, and **featured listings**. Any monetization lands on the **sell side**; buyers are not the target of fees.
 
 ---
 
@@ -237,14 +244,17 @@ report_status:    open | resolved
 
 ## 13. Open decisions
 
-**Client business calls (questionnaire):**
-1. Revenue model — seller completion fee vs. warehouse subscription vs. featured listings vs. free-to-grow.
-2. Verification — how a business earns the badge, who approves, what proof (EIN/license), limits on unverified.
-3. Disputes — who resolves a deal gone wrong; mediator or report-only.
-4. Launch market — one city (Atlanta) or nationwide; how first supply is seeded.
-5. Driver pay + vetting — who pays the delivery fee; license/insurance required; job claim first-come or auto-assign.
-6. Compliance — ISPM-15 / heat-treated (export) flag needed?
-7. Notifications — push only, or email too.
+**LOCKED decisions (were client business calls):**
+1. **Revenue — FREE at launch.** No fees/subscriptions/featured listings built now; seller completion fee, warehouse subscription, and featured listings are FUTURE (structure data to slot them in). See §10.
+2. **Verification — TRUST BADGE ONLY.** `verified_status` ✓ never gates listing/buying/selling; anyone can sell immediately. How a business earns the badge (proof/approver) is admin-granted oversight. See §4.
+3. **Disputes — report → admin review → warn / remove / ban.** Report-only surface for users; admins act. See §5, §8.
+4. **Launch market — NATIONWIDE** (supersedes "one city / Atlanta only"). Not geo-restricted; seed/demo data stays Atlanta-flavored but the product is national. How first supply is seeded is an ops task, not a product gate.
+5. **Driver vetting — license + insurance required, admin-approved before claiming** (`driver_approved`). **Job assignment — first-come claim at launch;** closest-driver auto-assign is a LATER enhancement. **Delivery fee payer — decided PER DEAL** (`delivery_paid_by` buyer|seller). See §4, §6, §7.
+6. **Payment mechanism — PARKED / undecided.** Record price + `payment_status` only; build no processing now. See §10.
+
+**Still open (revisit):**
+- Compliance — ISPM-15 / heat-treated (export) flag needed?
+- Notifications — push only, or email too.
 
 **Architect defaults applied now (override anytime):**
 - **Quantity reserved on Accept**, not Pending (multiple buyers may hold pending deals; seller chooses; stock commits on accept).

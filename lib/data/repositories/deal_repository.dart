@@ -7,4 +7,7 @@ abstract interface class DealRepository {
   Future<Deal?> getDealById(String id);
 
   Future<Deal> createDeal(Deal deal);
+
+  /// Persists a mutated deal (state-machine transitions, delivery-fee quote).
+  Future<Deal> updateDeal(Deal deal);
 }

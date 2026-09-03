@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/chat/chat_list_screen.dart';
+import '../../features/chat/thread_screen.dart';
 import '../../features/create_listing/create_listing_screen.dart';
+import '../../features/deals/deal_detail_screen.dart';
+import '../../features/deals/deals_screen.dart';
 import '../../features/listing_detail/listing_detail_screen.dart';
 import '../../features/marketplace/marketplace_screen.dart';
 import '../../features/placeholders/placeholder_screen.dart';
@@ -39,13 +43,15 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/deals',
-              builder: (_, _) => const PlaceholderScreen(
-                title: 'Deals',
-                icon: Icons.handshake_outlined,
-                message:
-                    'Your buy-side and sell-side deals will live here — '
-                    'accept, complete, and rate.',
-              ),
+              builder: (_, _) => const DealsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'deal/:id',
+                  parentNavigatorKey: _rootKey,
+                  builder: (_, state) =>
+                      DealDetailScreen(dealId: state.pathParameters['id']!),
+                ),
+              ],
             ),
           ],
         ),
@@ -53,13 +59,16 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/chat',
-              builder: (_, _) => const PlaceholderScreen(
-                title: 'Chat',
-                icon: Icons.chat_bubble_outline,
-                message:
-                    'Realtime threads open from a deal or a request. '
-                    'No bare DMs.',
-              ),
+              builder: (_, _) => const ChatListScreen(),
+              routes: [
+                GoRoute(
+                  path: 'thread/:id',
+                  parentNavigatorKey: _rootKey,
+                  builder: (_, state) => ThreadScreen(
+                    conversationId: state.pathParameters['id']!,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

@@ -261,3 +261,40 @@ report_status:    open | resolved
 - **Unavailable auto-archives after 24h → re-listable, never hard-deleted;** hidden from market + storefront immediately; auto-archive skipped if an active deal is attached.
 
 **Store-required regardless of client input:** in-app account deletion, privacy policy, Terms of Service.
+
+---
+
+## 14. Security & Standards (checked every milestone)
+
+The bar every backend milestone clears before moving on. Sized for a B2B marketplace — safe, not bloated.
+
+### Must-have (non-negotiable)
+- RLS enabled on every table, **verified by test** (not assumed): an unauthorized request must actually be blocked.
+- No secrets in the repo, ever — API keys/tokens in a gitignored env file; the `service_role` key never ships in the app.
+- Critical rules enforced server-side (DB/policies), not just UI: no overselling inventory; no acting on another user's deal/listing; privileged columns (`verified_status`, `is_admin`, `driver_approved`) writable only by an admin.
+- Auth required for every real (write) action; email confirmation on.
+- Inputs validated; user input never concatenated into raw SQL (use the client/parameterized queries).
+- Driver must be approved (license + insurance) before claiming a job.
+- App-store gates before launch: in-app account deletion, privacy policy, terms of service.
+
+### Deliberately NOT doing now (avoid over-engineering)
+- No custom crypto or exotic auth — Supabase Auth is sufficient.
+- No payment processing (parked).
+- No premature scaling infra (custom rate-limit layers, CDNs, sharding) before there are users.
+- No feature not on the decided list.
+
+### Per-milestone security gate (run at the end of each backend milestone)
+1. Prove RLS blocks a wrong/anonymous request (anon cannot read deals/messages; cannot write listings).
+2. Confirm no secret was committed (env file gitignored; history clean).
+3. Confirm the milestone's critical server-side rule holds (e.g. inventory can't go negative).
+Record anything deferred in the list below, with a reason.
+
+### Deferred (with reason) — keep current
+- **Email-confirmation deep link into the app** — deferred: UX polish; bundle it with push-notification deep links (`/listing/:id`, `/deal/:id`, etc.) in the notifications milestone. Today confirmation (when on) is handled via the email link + manual log in.
+- **Authenticated cross-user RLS test** — deferred: pending the first confirmed users. Anon-level RLS is verified (anon cannot read deals/messages or write listings); the user-vs-user check (user A cannot read user B's deals) runs once two real accounts exist.
+- **Matching as a server-side RPC/Edge Function** (BRAIN §7 scoring) — deferred: currently computed client-side on fake data; moves server-side when the marketplace swaps to Supabase reads.
+- **Unavailable → 24h auto-archive job** (pg_cron / Edge Function) — deferred: not built yet; belongs with the listings swap.
+- **Storage bucket RLS policies** (listing-photos public-read; driver-docs + delivery-proof private, owner/party/admin only) — deferred: written when camera/upload flows land (photos, driver docs, delivery proof).
+- **Google OAuth provider** — deferred: email/password shipped first; Google enabled when its Cloud OAuth client is configured.
+- **App-store gates** (in-app account deletion action, privacy policy, ToS) — deferred: pre-launch milestone (§12.14).
+- **Push notifications (FCM) + DB webhooks/Edge Functions** — deferred: notifications milestone (§9, §12.13).

@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/conversation.dart';
 import '../models/deal.dart';
+import '../models/enums.dart';
 import '../models/listing.dart';
 import '../models/message.dart';
 import '../models/profile.dart';
+import '../models/request.dart';
 import 'fake/fake_deal_repository.dart';
 import 'fake/fake_listing_repository.dart';
 import 'fake/fake_message_repository.dart';
@@ -19,7 +21,9 @@ import 'repositories/profile_repository.dart';
 import 'repositories/request_repository.dart';
 import 'repositories/review_repository.dart';
 import 'services/deal_service.dart';
+import 'services/matching_service.dart';
 import 'services/message_service.dart';
+import 'services/request_service.dart';
 
 /// Repository providers. Swapping to Supabase later = override just these in
 /// ProviderScope; no UI or controller changes required (BRAIN §6, §12).
@@ -102,6 +106,47 @@ final hasReviewedProvider =
   return ref
       .watch(reviewRepositoryProvider)
       .hasReviewed(dealId: dealId, reviewerId: me.id);
+});
+
+/// A seller's active listings (for their storefront).
+final sellerActiveListingsProvider =
+    FutureProvider.family<List<Listing>, String>((ref, sellerId) async {
+  final all =
+      await ref.watch(listingRepositoryProvider).getListingsBySeller(sellerId);
+  return all.where((l) => l.status == ListingStatus.active).toList();
+});
+
+/// Count of a seller's completed deals (shown on the storefront header).
+final sellerCompletedDealsProvider =
+    FutureProvider.family<int, String>((ref, sellerId) async {
+  final deals = await ref.watch(dealRepositoryProvider).getDealsForUser(sellerId);
+  return deals
+      .where((d) => d.sellerId == sellerId && d.dealStatus == DealStatus.completed)
+      .length;
+});
+
+// ── Requests + matching ──
+
+final requestServiceProvider =
+    Provider<RequestService>((ref) => RequestService(ref));
+
+final requestByIdProvider =
+    FutureProvider.family<PalletRequest?, String>((ref, id) {
+  return ref.watch(requestRepositoryProvider).getRequestById(id);
+});
+
+/// Scored matches for a request (BRAIN §7). Targeted requests are restricted to
+/// the target seller's listings first; broadcast scores the whole market.
+final matchesForRequestProvider =
+    FutureProvider.family<List<ScoredListing>, String>((ref, requestId) async {
+  final request =
+      await ref.watch(requestRepositoryProvider).getRequestById(requestId);
+  if (request == null) return const [];
+  final repo = ref.watch(listingRepositoryProvider);
+  final listings = request.targetSellerId != null
+      ? await repo.getListingsBySeller(request.targetSellerId!)
+      : await repo.getListings();
+  return MatchingService.matches(request, listings);
 });
 
 // ── Messages ──

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/conversation.dart';
 import '../../models/deal.dart';
 import '../../models/message.dart';
+import '../../models/profile.dart';
+import '../../models/request.dart';
 import '../fake/fake_message_repository.dart';
 import '../providers.dart';
 
@@ -34,6 +36,31 @@ class MessageService {
             dealId: deal.id,
             otherParty: other!,
             contextLabel: 'Deal · ${listing?.title ?? 'Listing'}',
+          ),
+        );
+    ref.invalidate(myConversationsProvider);
+    return convId;
+  }
+
+  /// Opens a thread for a targeted Special Request (keyed by requestId), tied
+  /// to the request — consistent with the no-bare-DMs rule (BRAIN §5).
+  Future<String> openRequestThread(
+    PalletRequest request,
+    Profile seller,
+  ) async {
+    final convId = FakeMessageRepository.convIdForRequest(request.id);
+    final existing =
+        await ref.read(messageRepositoryProvider).getConversationById(convId);
+    if (existing != null) return convId;
+
+    await ref.read(messageRepositoryProvider).ensureConversation(
+          Conversation(
+            id: convId,
+            context: ConversationContext.request,
+            requestId: request.id,
+            otherParty: seller,
+            contextLabel:
+                'Request · ${request.quantityNeeded}× ${request.palletTypeNeeded?.label ?? 'pallets'}',
           ),
         );
     ref.invalidate(myConversationsProvider);

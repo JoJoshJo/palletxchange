@@ -15,6 +15,7 @@ class FakeMessageRepository implements MessageRepository {
   int _idSeq = 1;
 
   static String convIdForDeal(String dealId) => 'conv_deal_$dealId';
+  static String convIdForRequest(String requestId) => 'conv_req_$requestId';
 
   void _seed() {
     final now = DateTime(2026, 8, 25, 9);

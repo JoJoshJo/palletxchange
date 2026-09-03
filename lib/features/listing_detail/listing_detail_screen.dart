@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
 import '../../core/theme/app_colors.dart';
@@ -118,47 +119,53 @@ class _Content extends StatelessWidget {
                 ),
               ),
               const Divider(height: 24, indent: 20, endIndent: 20),
-              // 3. Seller trust.
+              // 3. Seller trust (tap → storefront).
               if (seller != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: AppColors.navy,
-                        child: Text(
-                          seller.displayName.characters.first.toUpperCase(),
-                          style: const TextStyle(
-                            color: AppColors.onDark,
-                            fontWeight: FontWeight.w700,
+                InkWell(
+                  onTap: () => context.push('/profile/${seller.id}'),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: AppColors.navy,
+                          child: Text(
+                            seller.displayName.characters.first.toUpperCase(),
+                            style: const TextStyle(
+                              color: AppColors.onDark,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SellerTrustLine(
-                              name: seller.displayName,
-                              verified: seller.verifiedStatus,
-                              rating: seller.rating,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              seller.verifiedStatus
-                                  ? 'Verified business'
-                                  : 'Unverified seller',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SellerTrustLine(
+                                name: seller.displayName,
+                                verified: seller.verifiedStatus,
+                                rating: seller.rating,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 2),
+                              Text(
+                                seller.verifiedStatus
+                                    ? 'Verified business'
+                                    : 'Unverified seller',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const Icon(Icons.chevron_right,
+                            size: 20, color: AppColors.textMuted),
+                      ],
+                    ),
                   ),
                 ),
               const SizedBox(height: 20),

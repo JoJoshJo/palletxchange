@@ -7,5 +7,7 @@ abstract interface class RequestRepository {
   /// Requests created by one buyer.
   Future<List<PalletRequest>> getRequestsByBuyer(String buyerId);
 
+  Future<PalletRequest?> getRequestById(String id);
+
   Future<PalletRequest> createRequest(PalletRequest request);
 }

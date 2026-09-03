@@ -10,6 +10,9 @@ import '../../features/listing_detail/listing_detail_screen.dart';
 import '../../features/marketplace/marketplace_screen.dart';
 import '../../features/placeholders/placeholder_screen.dart';
 import '../../features/shell/app_shell.dart';
+import '../../features/special_request/matches_screen.dart';
+import '../../features/special_request/special_request_screen.dart';
+import '../../features/storefront/storefront_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
@@ -94,6 +97,29 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootKey,
       builder: (_, state) =>
           ListingDetailScreen(listingId: state.pathParameters['id']!),
+    ),
+    // Storefront profile.
+    GoRoute(
+      path: '/profile/:id',
+      parentNavigatorKey: _rootKey,
+      builder: (_, state) =>
+          StorefrontScreen(profileId: state.pathParameters['id']!),
+    ),
+    // Special Request (optional ?sellerId=) → its matches result.
+    GoRoute(
+      path: '/request',
+      parentNavigatorKey: _rootKey,
+      builder: (_, state) => SpecialRequestScreen(
+        sellerId: state.uri.queryParameters['sellerId'],
+      ),
+      routes: [
+        GoRoute(
+          path: 'matches/:id',
+          parentNavigatorKey: _rootKey,
+          builder: (_, state) =>
+              MatchesScreen(requestId: state.pathParameters['id']!),
+        ),
+      ],
     ),
   ],
 );

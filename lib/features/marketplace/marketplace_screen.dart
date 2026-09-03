@@ -400,12 +400,24 @@ class _EmptyState extends StatelessWidget {
         const SizedBox(height: 8),
         const Center(
           child: Text(
-            'Try widening your search.',
+            "Can't find it? Post a request and we'll match you.",
+            textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textMuted),
           ),
         ),
+        const SizedBox(height: 16),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: ElevatedButton.icon(
+              onPressed: () => context.push('/request'),
+              icon: const Icon(Icons.campaign_outlined),
+              label: const Text('Post a Special Request'),
+            ),
+          ),
+        ),
         if (hasFilters) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Center(
             child: OutlinedButton(
               onPressed: () => ref.read(listingFilterProvider.notifier).state =

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
@@ -92,11 +93,15 @@ class ListingCard extends StatelessWidget {
                   ),
                   if (seller != null) ...[
                     const Divider(height: 20),
-                    SellerTrustLine(
-                      name: seller.displayName,
-                      verified: seller.verifiedStatus,
-                      rating: seller.rating,
-                      dense: true,
+                    GestureDetector(
+                      onTap: () => context.push('/profile/${seller.id}'),
+                      behavior: HitTestBehavior.opaque,
+                      child: SellerTrustLine(
+                        name: seller.displayName,
+                        verified: seller.verifiedStatus,
+                        rating: seller.rating,
+                        dense: true,
+                      ),
                     ),
                   ],
                 ],

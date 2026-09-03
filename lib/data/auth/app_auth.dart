@@ -92,7 +92,14 @@ class AppAuth extends ChangeNotifier {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
-  }) {
+  }) async {
+    // Never let a new signup ride a leftover device session. With email
+    // confirmation ON, signUp returns no active session — so any previously
+    // persisted session would otherwise leave the user "logged in" as the old
+    // account. Clear it first.
+    if (_client.auth.currentSession != null) {
+      await _client.auth.signOut();
+    }
     return _client.auth.signUp(
       email: email,
       password: password,

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/providers.dart';
+import '../../models/enums.dart';
+import '../../models/listing.dart';
 import '../../models/profile.dart';
 import '../marketplace/widgets/listing_card.dart';
 
@@ -61,6 +63,10 @@ class StorefrontScreen extends ConsumerWidget {
                   );
                 },
               ),
+              if (isOwnStorefront)
+                SliverToBoxAdapter(
+                  child: _ArchivedSection(sellerId: profileId),
+                ),
             ],
           );
         },
@@ -78,6 +84,85 @@ class StorefrontScreen extends ConsumerWidget {
               ),
             ),
     );
+  }
+}
+
+/// Owner-only list of archived listings with a re-list action.
+class _ArchivedSection extends ConsumerWidget {
+  const _ArchivedSection({required this.sellerId});
+
+  final String sellerId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final archived = ref.watch(sellerArchivedListingsProvider(sellerId));
+    return archived.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (listings) {
+        if (listings.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(height: 24),
+              const Text(
+                'Archived',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Hidden from the marketplace. Re-list to make them active again.',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 12),
+              for (final l in listings)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _relist(ref, l),
+                        child: const Text('Re-list'),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _relist(WidgetRef ref, Listing listing) async {
+    await ref.read(listingRepositoryProvider).updateListing(
+          listing.copyWith(status: ListingStatus.active),
+        );
+    ref.invalidate(sellerArchivedListingsProvider(sellerId));
+    ref.invalidate(sellerActiveListingsProvider(sellerId));
+    ref.invalidate(marketplaceListingsProvider);
   }
 }
 

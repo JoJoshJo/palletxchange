@@ -13,7 +13,10 @@ import '../../models/enums.dart';
 import '../../models/listing.dart';
 
 class CreateListingScreen extends ConsumerStatefulWidget {
-  const CreateListingScreen({super.key});
+  const CreateListingScreen({super.key, this.initial});
+
+  /// When provided, the form edits this listing instead of creating a new one.
+  final Listing? initial;
 
   @override
   ConsumerState<CreateListingScreen> createState() =>
@@ -51,6 +54,38 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   static const int _maxPhotos = 5;
   final _picker = ImagePicker();
   final List<XFile> _photos = [];
+  final List<String> _existingPhotoUrls = [];
+
+  bool get _isEdit => widget.initial != null;
+  int get _photoCount => _existingPhotoUrls.length + _photos.length;
+
+  @override
+  void initState() {
+    super.initState();
+    final l = widget.initial;
+    if (l == null) return;
+    _title.text = l.title;
+    _type = l.palletType;
+    _size = l.palletSize;
+    _condition = l.condition;
+    _quantity.text = '${l.quantityAvailable}';
+    _minOrder.text = '${l.minOrderQuantity}';
+    _price.text = l.isFree ? '' : l.pricePerPallet.toString();
+    _isFree = l.isFree;
+    _exchange = l.exchangeAllowed;
+    _pickup = l.pickupAvailable;
+    _delivery = l.deliveryAvailable;
+    _forklift = l.forkliftAvailable;
+    _loadingDock = l.loadingDockAvailable;
+    _stackable = l.stackable;
+    _active = l.status == ListingStatus.active;
+    _address.text = l.address ?? '';
+    _city.text = l.city ?? 'Atlanta';
+    _state.text = l.state ?? 'GA';
+    _zip.text = l.zip ?? '';
+    _notes.text = l.notes ?? '';
+    _existingPhotoUrls.addAll(l.photos);
+  }
 
   @override
   void dispose() {
@@ -79,18 +114,20 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
-            const Text(
-              'New listing',
-              style: TextStyle(
+            Text(
+              _isEdit ? 'Edit listing' : 'New listing',
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'List pallets for nearby businesses to buy.',
-              style: TextStyle(color: AppColors.textMuted),
+            Text(
+              _isEdit
+                  ? 'Update the details of your listing.'
+                  : 'List pallets for nearby businesses to buy.',
+              style: const TextStyle(color: AppColors.textMuted),
             ),
             const SizedBox(height: 20),
 
@@ -251,20 +288,30 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   height: 96,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _photos.length + (_photos.length < _maxPhotos ? 1 : 0),
+                    itemCount:
+                        _photoCount + (_photoCount < _maxPhotos ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (context, i) {
-                      if (i == _photos.length) {
-                        return _AddPhotoTile(
-                          onTap: _saving ? null : _pickPhoto,
+                      // [existing URLs...] [new files...] [add tile]
+                      if (i < _existingPhotoUrls.length) {
+                        return _PhotoThumb(
+                          url: _existingPhotoUrls[i],
+                          onRemove: _saving
+                              ? null
+                              : () => setState(
+                                  () => _existingPhotoUrls.removeAt(i)),
                         );
                       }
-                      return _PhotoThumb(
-                        file: _photos[i],
-                        onRemove: _saving
-                            ? null
-                            : () => setState(() => _photos.removeAt(i)),
-                      );
+                      final ni = i - _existingPhotoUrls.length;
+                      if (ni < _photos.length) {
+                        return _PhotoThumb(
+                          file: _photos[ni],
+                          onRemove: _saving
+                              ? null
+                              : () => setState(() => _photos.removeAt(ni)),
+                        );
+                      }
+                      return _AddPhotoTile(onTap: _saving ? null : _pickPhoto);
                     },
                   ),
                 ),
@@ -288,7 +335,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                         color: AppColors.onDark,
                       ),
                     )
-                  : const Text('Publish listing'),
+                  : Text(_isEdit ? 'Save changes' : 'Publish listing'),
             ),
           ],
         ),
@@ -345,8 +392,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    // Upload photos first; collect their URLs.
-    final photoUrls = <String>[];
+    // Keep existing photos, then upload any newly picked ones.
+    final photoUrls = <String>[..._existingPhotoUrls];
     try {
       final storage = ref.read(storageRepositoryProvider);
       for (final x in _photos) {
@@ -370,8 +417,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
     final me = ref.read(currentProfileProvider).value;
     final listing = Listing(
-      id: 'pending',
-      sellerId: me?.id ?? 'me',
+      id: widget.initial?.id ?? 'pending',
+      sellerId: widget.initial?.sellerId ?? me?.id ?? 'me',
       photos: photoUrls,
       title: _title.text.trim(),
       palletType: _type,
@@ -396,7 +443,20 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     );
 
     try {
-      await ref.read(listingRepositoryProvider).createListing(listing);
+      final repo = ref.read(listingRepositoryProvider);
+      if (_isEdit) {
+        await repo.updateListing(listing);
+        ref.invalidate(marketplaceListingsProvider);
+        ref.invalidate(listingByIdProvider(listing.id));
+        ref.invalidate(sellerActiveListingsProvider(listing.sellerId));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Listing updated')));
+        context.pop();
+        return;
+      }
+      await repo.createListing(listing);
       ref.invalidate(marketplaceListingsProvider);
       if (!mounted) return;
       // Reset the form so the previous entry can't linger or be re-submitted.
@@ -629,9 +689,10 @@ class _AddPhotoTile extends StatelessWidget {
 }
 
 class _PhotoThumb extends StatelessWidget {
-  const _PhotoThumb({required this.file, required this.onRemove});
+  const _PhotoThumb({this.file, this.url, required this.onRemove});
 
-  final XFile file;
+  final XFile? file;
+  final String? url;
   final VoidCallback? onRemove;
 
   @override
@@ -640,12 +701,26 @@ class _PhotoThumb extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            File(file.path),
-            width: 96,
-            height: 96,
-            fit: BoxFit.cover,
-          ),
+          child: url != null
+              ? Image.network(
+                  url!,
+                  width: 96,
+                  height: 96,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    width: 96,
+                    height: 96,
+                    color: AppColors.surface,
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: AppColors.textMuted),
+                  ),
+                )
+              : Image.file(
+                  File(file!.path),
+                  width: 96,
+                  height: 96,
+                  fit: BoxFit.cover,
+                ),
         ),
         Positioned(
           top: 4,

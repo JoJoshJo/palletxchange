@@ -14,6 +14,7 @@ import '../../features/common/error_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
 import '../../features/chat/thread_screen.dart';
 import '../../features/create_listing/create_listing_screen.dart';
+import '../../features/create_listing/edit_listing_screen.dart';
 import '../../features/deals/deal_detail_screen.dart';
 import '../../features/deals/deals_screen.dart';
 import '../../features/driver/driver_home.dart';
@@ -202,6 +203,13 @@ final List<RouteBase> _routes = [
       path: '/admin',
       parentNavigatorKey: _rootKey,
       builder: (_, _) => const AdminHome(),
+    ),
+    // Edit an existing listing (owner only; RLS-enforced).
+    GoRoute(
+      path: '/edit-listing/:id',
+      parentNavigatorKey: _rootKey,
+      builder: (_, state) =>
+          EditListingScreen(listingId: state.pathParameters['id']!),
     ),
     // Storefront profile.
     GoRoute(

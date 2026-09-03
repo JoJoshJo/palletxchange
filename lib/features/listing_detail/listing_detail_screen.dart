@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/pallet_photo.dart';
 import '../../core/widgets/trust_widgets.dart';
 import '../../data/providers.dart';
+import '../../models/enums.dart';
 import '../../models/listing.dart';
 import '../../models/report.dart';
 
@@ -515,11 +516,37 @@ class _StickyActionsState extends ConsumerState<_StickyActions> {
         12 + MediaQuery.of(context).padding.bottom,
       ),
       child: isOwnListing
-          ? const Center(
-              child: Text(
-                'This is your listing.',
-                style: TextStyle(color: AppColors.textMuted),
-              ),
+          ? Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () =>
+                            context.push('/edit-listing/${widget.listing.id}'),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : _archive,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFC0392B),
+                    ),
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
+                          )
+                        : const Icon(Icons.delete_outline),
+                    label: const Text('Remove'),
+                  ),
+                ),
+              ],
             )
           : Row(
               children: [
@@ -568,6 +595,73 @@ class _StickyActionsState extends ConsumerState<_StickyActions> {
         setState(() => _busy = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Couldn't open the deal — try again.")),
+        );
+      }
+    }
+  }
+
+  Future<void> _archive() async {
+    setState(() => _busy = true);
+    // Warn if there are open deals on this listing.
+    int activeDeals = 0;
+    try {
+      activeDeals = await ref
+          .read(dealRepositoryProvider)
+          .activeDealCountForListing(widget.listing.id);
+    } catch (_) {/* non-fatal */}
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove listing?'),
+        content: Text(
+          activeDeals > 0
+              ? 'This listing has $activeDeals open deal(s). Removing it hides '
+                  'it from the marketplace, but those deals stay active. You can '
+                  're-list it later. Remove anyway?'
+              : 'This hides the listing from the marketplace. You can re-list it '
+                  'later from My Storefront.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC0392B),
+              minimumSize: const Size(96, 44),
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(listingRepositoryProvider).updateListing(
+            widget.listing.copyWith(status: ListingStatus.archived),
+          );
+      ref.invalidate(marketplaceListingsProvider);
+      ref.invalidate(listingByIdProvider(widget.listing.id));
+      ref.invalidate(sellerActiveListingsProvider(widget.listing.sellerId));
+      ref.invalidate(sellerArchivedListingsProvider(widget.listing.sellerId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Listing removed')),
+        );
+        context.pop();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't remove — try again.")),
         );
       }
     }

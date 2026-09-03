@@ -125,6 +125,17 @@ class FakeDealRepository implements DealRepository {
   }
 
   @override
+  Future<int> activeDealCountForListing(String listingId) async {
+    await _latency();
+    return _deals
+        .where((d) =>
+            d.listingId == listingId &&
+            (d.dealStatus == DealStatus.pending ||
+                d.dealStatus == DealStatus.accepted))
+        .length;
+  }
+
+  @override
   Future<Deal> updateDeal(Deal deal) async {
     await _latency();
     final i = _deals.indexWhere((d) => d.id == deal.id);

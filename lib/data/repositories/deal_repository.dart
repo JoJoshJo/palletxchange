@@ -10,4 +10,8 @@ abstract interface class DealRepository {
 
   /// Persists a mutated deal (state-machine transitions, delivery-fee quote).
   Future<Deal> updateDeal(Deal deal);
+
+  /// Count of pending/accepted deals attached to a listing (used to warn
+  /// before archiving).
+  Future<int> activeDealCountForListing(String listingId);
 }

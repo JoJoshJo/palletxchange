@@ -39,6 +39,16 @@ class SupabaseDealRepository implements DealRepository {
   }
 
   @override
+  Future<int> activeDealCountForListing(String listingId) async {
+    final rows = await _c
+        .from('deals')
+        .select('id')
+        .eq('listing_id', listingId)
+        .inFilter('deal_status', ['pending', 'accepted']);
+    return (rows as List).length;
+  }
+
+  @override
   Future<Deal> updateDeal(Deal deal) async {
     final payload = deal.toJson()
       ..remove('id')

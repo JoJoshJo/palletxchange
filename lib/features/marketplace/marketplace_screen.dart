@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +24,7 @@ class MarketplaceScreen extends ConsumerWidget {
       body: Column(
         children: [
           const _LocationHeader(),
+          const _SearchBar(),
           _FilterBar(filter: filter),
           const Divider(height: 1),
           Expanded(
@@ -94,6 +97,76 @@ class _LocationHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Debounced text search wired into the shared listing filter (matches
+/// title/city/state/type in the repository).
+class _SearchBar extends ConsumerStatefulWidget {
+  const _SearchBar();
+
+  @override
+  ConsumerState<_SearchBar> createState() => _SearchBarState();
+}
+
+class _SearchBarState extends ConsumerState<_SearchBar> {
+  final _controller = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.text = ref.read(listingFilterProvider).search ?? '';
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final f = ref.read(listingFilterProvider);
+      ref.read(listingFilterProvider.notifier).state =
+          f.copyWith(search: value);
+      setState(() {}); // refresh the clear-button visibility
+    });
+  }
+
+  void _clear() {
+    _controller.clear();
+    _debounce?.cancel();
+    final f = ref.read(listingFilterProvider);
+    ref.read(listingFilterProvider.notifier).state = f.copyWith(search: '');
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.bg,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: TextField(
+        controller: _controller,
+        onChanged: _onChanged,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Search pallets, city, type…',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _controller.text.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: _clear,
+                ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        ),
       ),
     );
   }

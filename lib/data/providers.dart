@@ -188,6 +188,14 @@ final sellerActiveListingsProvider =
   return all.where((l) => l.status == ListingStatus.active).toList();
 });
 
+/// A seller's archived listings (owner-only re-list section on My Storefront).
+final sellerArchivedListingsProvider =
+    FutureProvider.family<List<Listing>, String>((ref, sellerId) async {
+  final all =
+      await ref.watch(listingRepositoryProvider).getListingsBySeller(sellerId);
+  return all.where((l) => l.status == ListingStatus.archived).toList();
+});
+
 /// Count of a seller's completed deals (shown on the storefront header).
 final sellerCompletedDealsProvider =
     FutureProvider.family<int, String>((ref, sellerId) async {

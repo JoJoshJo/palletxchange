@@ -6,14 +6,17 @@ import '../../../core/widgets/pallet_photo.dart';
 import '../../../core/widgets/trust_widgets.dart';
 import '../../../models/listing.dart';
 
-/// Marketplace listing card (BRAIN §11): photo, title, price/pallet,
-/// condition-grade badge, qty, seller name + green ✓ + ★rating, distance,
-/// pickup/delivery tag.
+/// Marketplace listing card (BRAIN §11), top-banner layout:
+/// [short image banner] → [title + price row] →
+/// [condition badge · qty · distance · pickup/delivery] → [seller ✓ ★rating].
 class ListingCard extends StatelessWidget {
   const ListingCard({super.key, required this.listing, required this.onTap});
 
   final Listing listing;
   final VoidCallback onTap;
+
+  /// Shorter banner strip so the empty state never dominates the card.
+  static const double _bannerHeight = 156;
 
   @override
   Widget build(BuildContext context) {
@@ -24,48 +27,52 @@ class ListingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Stack(
-              children: [
-                PalletPhoto(
-                  url: listing.photos.isNotEmpty ? listing.photos.first : null,
-                  height: 168,
-                ),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: ConditionBadge(
-                    label: listing.condition.grade,
-                    recyclable: listing.condition.isRecyclable,
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: _PricePill(listing: listing),
-                ),
-              ],
+            // Banner — full width, fixed short height; the Card clips the
+            // rounded top corners. cover for real photos, compact placeholder
+            // otherwise (handled inside PalletPhoto).
+            PalletPhoto(
+              url: listing.photos.isNotEmpty ? listing.photos.first : null,
+              height: _bannerHeight,
+              width: double.infinity,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    listing.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                      height: 1.25,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 6,
+                  // Title + price on one row.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Expanded(
+                        child: Text(
+                          listing.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _PriceLabel(listing: listing),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Meta row — condition badge first, then qty / distance /
+                  // fulfillment.
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ConditionBadge(
+                        label: listing.condition.grade,
+                        recyclable: listing.condition.isRecyclable,
+                      ),
                       MetaTag(
                         icon: Icons.inventory_2_outlined,
                         label: '${listing.quantityAvailable} available',
@@ -83,14 +90,15 @@ class ListingCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const Divider(height: 20),
-                  if (seller != null)
+                  if (seller != null) ...[
+                    const Divider(height: 20),
                     SellerTrustLine(
                       name: seller.displayName,
                       verified: seller.verifiedStatus,
                       rating: seller.rating,
                       dense: true,
                     ),
+                  ],
                 ],
               ),
             ),
@@ -107,28 +115,45 @@ class ListingCard extends StatelessWidget {
   }
 }
 
-class _PricePill extends StatelessWidget {
-  const _PricePill({required this.listing});
+/// Bold navy price aligned to the title row. "Free" renders in green;
+/// priced listings show "$X.XX" with a small muted "/pallet".
+class _PriceLabel extends StatelessWidget {
+  const _PriceLabel({required this.listing});
 
   final Listing listing;
 
   @override
   Widget build(BuildContext context) {
-    final free = listing.isFree;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: free ? AppColors.green : AppColors.navy,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        free ? 'Free' : money(listing.pricePerPallet),
+    if (listing.isFree) {
+      return const Text(
+        'Free',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: AppColors.green,
+        ),
+      );
+    }
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: money(listing.pricePerPallet)),
+          const TextSpan(
+            text: ' /pallet',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
         style: const TextStyle(
-          color: AppColors.onDark,
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: AppColors.navy,
         ),
       ),
+      textAlign: TextAlign.right,
     );
   }
 }

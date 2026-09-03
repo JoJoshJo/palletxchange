@@ -114,7 +114,8 @@ class _FilterBar extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        // Extra trailing pad so the last chip clearly peeks, signalling scroll.
+        padding: const EdgeInsets.only(left: 16, right: 28),
         child: Row(
           children: [
             _ChoiceChipFilter<PalletType>(

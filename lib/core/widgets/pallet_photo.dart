@@ -58,12 +58,12 @@ class _Placeholder extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: const [
-          Icon(Icons.inventory_2_outlined,
-              size: 40, color: AppColors.textMuted),
-          SizedBox(height: 6),
+          Icon(Icons.photo_camera_outlined,
+              size: 26, color: AppColors.textMuted),
+          SizedBox(height: 4),
           Text(
             'No photo',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 11),
           ),
         ],
       ),

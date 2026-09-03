@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../data/auth/app_auth.dart';
 import '../../features/admin/admin_home.dart';
 import '../../features/auth/auth_screen.dart';
+import '../../features/auth/link_callback_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/splash_screen.dart';
+import '../../features/common/error_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
 import '../../features/chat/thread_screen.dart';
 import '../../features/create_listing/create_listing_screen.dart';
@@ -31,12 +33,31 @@ GoRouter createRouter({AppAuth? auth}) {
     initialLocation: auth == null ? '/browse' : '/splash',
     refreshListenable: auth,
     redirect: auth == null ? null : (context, state) => _guard(auth, state),
+    errorBuilder: (context, state) =>
+        ErrorScreen(message: state.error?.message),
     routes: _routes,
   );
 }
 
 String? _guard(AppAuth auth, GoRouterState state) {
   final loc = state.matchedLocation;
+
+  // The email-confirmation deep link lands here. If it carries an error we
+  // keep the user on the callback screen (it shows "Link expired" + resend);
+  // otherwise supabase_flutter is exchanging the code and the session arrives
+  // shortly, at which point this guard routes onward.
+  if (loc == '/login-callback') {
+    final qp = state.uri.queryParameters;
+    final hasError = qp.containsKey('error') ||
+        qp.containsKey('error_code') ||
+        qp.containsKey('error_description');
+    if (hasError) return null;
+    if (auth.isLoggedIn) {
+      return auth.profileComplete ? '/browse' : '/onboarding';
+    }
+    return null; // exchange in progress — stay on the "confirming…" screen
+  }
+
   if (auth.loading) return loc == '/splash' ? null : '/splash';
 
   final onAuth = loc == '/auth';
@@ -53,6 +74,10 @@ String? _guard(AppAuth auth, GoRouterState state) {
 final List<RouteBase> _routes = [
     GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
     GoRoute(path: '/auth', builder: (_, _) => const AuthScreen()),
+    GoRoute(
+      path: '/login-callback',
+      builder: (_, _) => const LinkCallbackScreen(),
+    ),
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>

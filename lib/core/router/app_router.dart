@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/auth/app_auth.dart';
+import '../../features/admin/admin_home.dart';
+import '../../features/auth/auth_screen.dart';
+import '../../features/auth/onboarding_screen.dart';
+import '../../features/auth/splash_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
 import '../../features/chat/thread_screen.dart';
 import '../../features/create_listing/create_listing_screen.dart';
 import '../../features/deals/deal_detail_screen.dart';
 import '../../features/deals/deals_screen.dart';
-import '../../features/listing_detail/listing_detail_screen.dart';
-import '../../features/admin/admin_home.dart';
 import '../../features/driver/driver_home.dart';
+import '../../features/listing_detail/listing_detail_screen.dart';
 import '../../features/marketplace/marketplace_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/special_request/matches_screen.dart';
@@ -18,12 +22,38 @@ import '../../features/you/you_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
-/// App routes. Deep-link paths (`/listing/:id`, etc.) match BRAIN §9 so the
-/// same routes carry over when auth + backend land.
-final appRouter = GoRouter(
-  navigatorKey: _rootKey,
-  initialLocation: '/browse',
-  routes: [
+/// Builds the app router. When [auth] is provided (Supabase configured), an
+/// auth gate redirects: not logged in → /auth; logged in but no profile →
+/// /onboarding; otherwise the app. When null, the app runs ungated (dev).
+GoRouter createRouter({AppAuth? auth}) {
+  return GoRouter(
+    navigatorKey: _rootKey,
+    initialLocation: auth == null ? '/browse' : '/splash',
+    refreshListenable: auth,
+    redirect: auth == null ? null : (context, state) => _guard(auth, state),
+    routes: _routes,
+  );
+}
+
+String? _guard(AppAuth auth, GoRouterState state) {
+  final loc = state.matchedLocation;
+  if (auth.loading) return loc == '/splash' ? null : '/splash';
+
+  final onAuth = loc == '/auth';
+  final onOnboarding = loc == '/onboarding';
+
+  if (!auth.isLoggedIn) return onAuth ? null : '/auth';
+  if (!auth.profileComplete) return onOnboarding ? null : '/onboarding';
+
+  // Signed in + onboarded: keep them out of the auth/splash screens.
+  if (onAuth || onOnboarding || loc == '/splash') return '/browse';
+  return null;
+}
+
+final List<RouteBase> _routes = [
+    GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+    GoRoute(path: '/auth', builder: (_, _) => const AuthScreen()),
+    GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
           AppShell(navigationShell: navigationShell),
@@ -128,5 +158,4 @@ final appRouter = GoRouter(
         ),
       ],
     ),
-  ],
-);
+];

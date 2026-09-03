@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/config/supabase_config.dart';
 import '../../core/dev/dev_role_switch.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
+import '../../data/auth/app_auth.dart';
 import '../../data/providers.dart';
 
 class YouScreen extends ConsumerWidget {
@@ -75,6 +78,17 @@ class YouScreen extends ConsumerWidget {
             label: 'Delete account',
             danger: true,
           ),
+          if (SupabaseConfig.isConfigured) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await appAuth.signOut();
+                if (context.mounted) context.go('/auth');
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign out'),
+            ),
+          ],
         ],
       ),
     );

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/supabase_config.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'data/auth/app_auth.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (SupabaseConfig.isConfigured) {
+  final configured = SupabaseConfig.isConfigured;
+  if (configured) {
     await Supabase.initialize(
       url: SupabaseConfig.url,
       // Legacy anon JWT (still valid); the newer `publishableKey` param is for
@@ -17,13 +20,24 @@ Future<void> main() async {
       // ignore: deprecated_member_use
       anonKey: SupabaseConfig.anonKey,
     );
+    appAuth = AppAuth(Supabase.instance.client);
   }
 
-  runApp(const ProviderScope(child: PalletXchangeApp()));
+  runApp(ProviderScope(child: PalletXchangeApp(gated: configured)));
 }
 
-class PalletXchangeApp extends StatelessWidget {
-  const PalletXchangeApp({super.key});
+class PalletXchangeApp extends StatefulWidget {
+  const PalletXchangeApp({super.key, required this.gated});
+
+  final bool gated;
+
+  @override
+  State<PalletXchangeApp> createState() => _PalletXchangeAppState();
+}
+
+class _PalletXchangeAppState extends State<PalletXchangeApp> {
+  late final GoRouter _router =
+      createRouter(auth: widget.gated ? appAuth : null);
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +45,7 @@ class PalletXchangeApp extends StatelessWidget {
       title: 'PalletXchange',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      routerConfig: appRouter,
+      routerConfig: _router,
     );
   }
 }

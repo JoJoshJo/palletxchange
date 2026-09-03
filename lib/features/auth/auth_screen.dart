@@ -133,6 +133,13 @@ class _AuthScreenState extends State<AuthScreen> {
                           if (_info != null) ...[
                             const SizedBox(height: 12),
                             _Banner(text: _info!, error: false),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton(
+                                onPressed: _busy ? null : _resend,
+                                child: const Text('Resend confirmation email'),
+                              ),
+                            ),
                           ],
                           const SizedBox(height: 20),
                           ElevatedButton(
@@ -174,6 +181,28 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _resend() async {
+    final email = _email.text.trim();
+    if (!email.contains('@')) {
+      setState(() => _error = 'Enter your email to resend.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await appAuth.resendConfirmation(email);
+      if (mounted) setState(() => _info = 'Confirmation email sent again.');
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = "Couldn't resend — try again.");
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _submit() async {

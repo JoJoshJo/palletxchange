@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/config/supabase_config.dart';
+
 /// App-wide auth + profile-completion state, used by the router to gate access.
 ///
 /// Kept as a plain [ChangeNotifier] (not Riverpod) so it can be a go_router
@@ -68,7 +70,21 @@ class AppAuth extends ChangeNotifier {
     required String email,
     required String password,
   }) {
-    return _client.auth.signUp(email: email, password: password);
+    return _client.auth.signUp(
+      email: email,
+      password: password,
+      // Confirmation email links back into the app via this deep link.
+      emailRedirectTo: SupabaseConfig.authRedirectUrl,
+    );
+  }
+
+  /// Re-send the confirmation email (e.g. the first one expired).
+  Future<void> resendConfirmation(String email) {
+    return _client.auth.resend(
+      type: OtpType.signup,
+      email: email,
+      emailRedirectTo: SupabaseConfig.authRedirectUrl,
+    );
   }
 
   Future<AuthResponse> signIn({

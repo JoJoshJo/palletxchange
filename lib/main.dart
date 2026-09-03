@@ -19,6 +19,11 @@ Future<void> main() async {
       // the sb_publishable_* key format.
       // ignore: deprecated_member_use
       anonKey: SupabaseConfig.anonKey,
+      // PKCE: the confirmation-email deep link carries a code that
+      // supabase_flutter auto-exchanges for a session on open (warm or cold).
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+      ),
     );
     appAuth = AppAuth(Supabase.instance.client);
   }

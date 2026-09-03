@@ -48,3 +48,6 @@ app.*.map.json
 *.keystore
 key.properties
 .env
+
+# Local Supabase config (do not commit)
+env.json

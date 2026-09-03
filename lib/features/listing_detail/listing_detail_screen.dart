@@ -8,6 +8,7 @@ import '../../core/widgets/pallet_photo.dart';
 import '../../core/widgets/trust_widgets.dart';
 import '../../data/providers.dart';
 import '../../models/listing.dart';
+import '../../models/report.dart';
 
 class ListingDetailScreen extends ConsumerWidget {
   const ListingDetailScreen({super.key, required this.listingId});
@@ -227,13 +228,97 @@ class _Content extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              Center(child: _ReportButton(listing: listing)),
+              const SizedBox(height: 16),
             ],
           ),
         ),
         _StickyActions(listing: listing),
       ],
     );
+  }
+}
+
+/// Creates a real report record (fixes the prototype's no-op report button).
+class _ReportButton extends ConsumerWidget {
+  const _ReportButton({required this.listing});
+
+  final Listing listing;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TextButton.icon(
+      onPressed: () => _report(context, ref),
+      style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+      icon: const Icon(Icons.flag_outlined, size: 18),
+      label: const Text('Report this listing'),
+    );
+  }
+
+  Future<void> _report(BuildContext context, WidgetRef ref) async {
+    const reasons = [
+      'Misleading condition',
+      'Wrong quantity or price',
+      'Prohibited item',
+      'Spam or scam',
+      'Other',
+    ];
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Report listing',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            for (final r in reasons)
+              ListTile(
+                title: Text(r),
+                onTap: () => Navigator.pop(context, r),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (reason == null) return;
+
+    final me = ref.read(currentUserProvider);
+    await ref.read(reportRepositoryProvider).createReport(
+          Report(
+            id: 'pending',
+            reportedBy: me.id,
+            reportedUser: listing.sellerId,
+            listingId: listing.id,
+            reason: reason,
+            subjectLabel: listing.title,
+          ),
+        );
+    ref.invalidate(allReportsProvider);
+    ref.invalidate(adminStatsProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report submitted — thank you')),
+      );
+    }
   }
 }
 

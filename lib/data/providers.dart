@@ -2,25 +2,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/conversation.dart';
 import '../models/deal.dart';
+import '../models/delivery.dart';
 import '../models/enums.dart';
 import '../models/listing.dart';
 import '../models/message.dart';
 import '../models/profile.dart';
+import '../models/report.dart';
 import '../models/request.dart';
 import 'fake/fake_deal_repository.dart';
+import 'fake/fake_delivery_repository.dart';
 import 'fake/fake_listing_repository.dart';
 import 'fake/fake_message_repository.dart';
 import 'fake/fake_profile_repository.dart';
+import 'fake/fake_report_repository.dart';
 import 'fake/fake_request_repository.dart';
 import 'fake/fake_review_repository.dart';
 import 'fake/fake_seed.dart';
 import 'repositories/deal_repository.dart';
+import 'repositories/delivery_repository.dart';
 import 'repositories/listing_repository.dart';
 import 'repositories/message_repository.dart';
 import 'repositories/profile_repository.dart';
+import 'repositories/report_repository.dart';
 import 'repositories/request_repository.dart';
 import 'repositories/review_repository.dart';
+import 'services/admin_service.dart';
 import 'services/deal_service.dart';
+import 'services/delivery_service.dart';
 import 'services/matching_service.dart';
 import 'services/message_service.dart';
 import 'services/request_service.dart';
@@ -49,6 +57,14 @@ final reviewRepositoryProvider = Provider<ReviewRepository>((ref) {
 
 final messageRepositoryProvider = Provider<MessageRepository>((ref) {
   return FakeMessageRepository();
+});
+
+final deliveryRepositoryProvider = Provider<DeliveryRepository>((ref) {
+  return FakeDeliveryRepository();
+});
+
+final reportRepositoryProvider = Provider<ReportRepository>((ref) {
+  return FakeReportRepository();
 });
 
 /// The signed-in user's profile (fixed demo trader until auth lands).
@@ -167,4 +183,92 @@ final conversationByIdProvider =
 final messagesProvider =
     FutureProvider.family<List<Message>, String>((ref, conversationId) {
   return ref.watch(messageRepositoryProvider).getMessages(conversationId);
+});
+
+// ── Deliveries (driver job board) ──
+
+final deliveryServiceProvider =
+    Provider<DeliveryService>((ref) => DeliveryService(ref));
+
+/// The demo driver profile (dev role switch until auth lands).
+final currentDriverProvider = Provider<Profile>((ref) => FakeSeed.demoDriver);
+
+final openJobsProvider = FutureProvider<List<Delivery>>((ref) {
+  return ref.watch(deliveryRepositoryProvider).getOpenJobs();
+});
+
+final myDeliveriesProvider = FutureProvider<List<Delivery>>((ref) {
+  final driver = ref.watch(currentDriverProvider);
+  return ref.watch(deliveryRepositoryProvider).getDeliveriesForDriver(driver.id);
+});
+
+final deliveryByIdProvider =
+    FutureProvider.family<Delivery?, String>((ref, id) {
+  return ref.watch(deliveryRepositoryProvider).getDeliveryById(id);
+});
+
+/// Driver earnings = sum of completed-delivery fees (computed, not hardcoded).
+final driverEarningsProvider = FutureProvider<double>((ref) async {
+  final deliveries = await ref.watch(myDeliveriesProvider.future);
+  return deliveries
+      .where((d) => d.deliveryStatus == DeliveryStatus.completed)
+      .fold<double>(0, (sum, d) => sum + d.deliveryFee);
+});
+
+// ── Admin oversight ──
+
+final adminServiceProvider =
+    Provider<AdminService>((ref) => AdminService(ref));
+
+final allProfilesProvider = FutureProvider<List<Profile>>((ref) {
+  return ref.watch(profileRepositoryProvider).getAllProfiles();
+});
+
+final allListingsProvider = FutureProvider<List<Listing>>((ref) {
+  return ref.watch(listingRepositoryProvider).getAllListings();
+});
+
+final allReportsProvider = FutureProvider<List<Report>>((ref) {
+  return ref.watch(reportRepositoryProvider).getAllReports();
+});
+
+/// Aggregate counts for the admin overview.
+class AdminStats {
+  const AdminStats({
+    required this.users,
+    required this.activeListings,
+    required this.dealsByStatus,
+    required this.openReports,
+  });
+  final int users;
+  final int activeListings;
+  final Map<DealStatus, int> dealsByStatus;
+  final int openReports;
+}
+
+final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
+  final profiles = await ref.watch(allProfilesProvider.future);
+  final listings = await ref.watch(allListingsProvider.future);
+  final reports = await ref.watch(allReportsProvider.future);
+
+  // Deals across all known users (dedup by id).
+  final dealRepo = ref.watch(dealRepositoryProvider);
+  final seen = <String, DealStatus>{};
+  for (final p in profiles) {
+    for (final d in await dealRepo.getDealsForUser(p.id)) {
+      seen[d.id] = d.dealStatus;
+    }
+  }
+  final byStatus = <DealStatus, int>{};
+  for (final s in seen.values) {
+    byStatus[s] = (byStatus[s] ?? 0) + 1;
+  }
+
+  return AdminStats(
+    users: profiles.length,
+    activeListings:
+        listings.where((l) => l.status == ListingStatus.active).length,
+    dealsByStatus: byStatus,
+    openReports: reports.where((r) => r.status == ReportStatus.open).length,
+  );
 });

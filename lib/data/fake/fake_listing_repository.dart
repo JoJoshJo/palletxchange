@@ -41,6 +41,12 @@ class FakeListingRepository implements ListingRepository {
   }
 
   @override
+  Future<List<Listing>> getAllListings() async {
+    await _latency();
+    return List.unmodifiable(_listings);
+  }
+
+  @override
   Future<Listing> createListing(Listing listing) async {
     await _latency();
     final stored = listing.copyWith(

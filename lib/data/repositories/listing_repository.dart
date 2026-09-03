@@ -70,6 +70,9 @@ abstract interface class ListingRepository {
   /// Listings belonging to one seller (any status).
   Future<List<Listing>> getListingsBySeller(String sellerId);
 
+  /// Every listing, any status (admin oversight).
+  Future<List<Listing>> getAllListings();
+
   /// Persists a new listing and returns the stored copy (with id).
   Future<Listing> createListing(Listing listing);
 

@@ -84,11 +84,26 @@ abstract final class FakeSeed {
     ),
   ];
 
+  /// The demo driver account (dev role switch; real auth in M3).
+  static const Profile demoDriver = Profile(
+    id: 'driver_me',
+    name: 'Sam Rivera',
+    accountType: AccountType.driver,
+    email: 'driver@example.com',
+    city: 'Atlanta',
+    state: 'GA',
+    latitude: 33.749,
+    longitude: -84.388,
+    verifiedStatus: true,
+    rating: 4.9,
+  );
+
   static Profile? sellerById(String id) {
     for (final s in sellers) {
       if (s.id == id) return s;
     }
     if (id == currentUser.id) return currentUser;
+    if (id == demoDriver.id) return demoDriver;
     return null;
   }
 

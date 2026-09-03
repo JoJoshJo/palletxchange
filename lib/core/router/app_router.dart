@@ -7,12 +7,14 @@ import '../../features/create_listing/create_listing_screen.dart';
 import '../../features/deals/deal_detail_screen.dart';
 import '../../features/deals/deals_screen.dart';
 import '../../features/listing_detail/listing_detail_screen.dart';
+import '../../features/admin/admin_home.dart';
+import '../../features/driver/driver_home.dart';
 import '../../features/marketplace/marketplace_screen.dart';
-import '../../features/placeholders/placeholder_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/special_request/matches_screen.dart';
 import '../../features/special_request/special_request_screen.dart';
 import '../../features/storefront/storefront_screen.dart';
+import '../../features/you/you_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
@@ -79,13 +81,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/you',
-              builder: (_, _) => const PlaceholderScreen(
-                title: 'You',
-                icon: Icons.person_outline,
-                message:
-                    'Your profile, storefront, listings, and settings — '
-                    'coming soon.',
-              ),
+              builder: (_, _) => const YouScreen(),
             ),
           ],
         ),
@@ -97,6 +93,17 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootKey,
       builder: (_, state) =>
           ListingDetailScreen(listingId: state.pathParameters['id']!),
+    ),
+    // DEV role surfaces (until real auth in M3).
+    GoRoute(
+      path: '/driver',
+      parentNavigatorKey: _rootKey,
+      builder: (_, _) => const DriverHome(),
+    ),
+    GoRoute(
+      path: '/admin',
+      parentNavigatorKey: _rootKey,
+      builder: (_, _) => const AdminHome(),
     ),
     // Storefront profile.
     GoRoute(

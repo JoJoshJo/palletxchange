@@ -143,6 +143,35 @@ enum FulfillmentMethod {
       _byValue(FulfillmentMethod.values, v);
 }
 
+enum DeliveryStatus {
+  requested('requested', 'Requested'),
+  accepted('accepted', 'Accepted'),
+  driverAssigned('driver_assigned', 'Driver assigned'),
+  pickedUp('picked_up', 'Picked up'),
+  inTransit('in_transit', 'In transit'),
+  delivered('delivered', 'Delivered'),
+  completed('completed', 'Completed'),
+  cancelled('cancelled', 'Cancelled');
+
+  const DeliveryStatus(this.value, this.label);
+  final String value;
+  final String label;
+
+  static DeliveryStatus? fromValue(String? v) =>
+      _byValue(DeliveryStatus.values, v);
+}
+
+enum ReportStatus {
+  open('open', 'Open'),
+  resolved('resolved', 'Resolved');
+
+  const ReportStatus(this.value, this.label);
+  final String value;
+  final String label;
+
+  static ReportStatus? fromValue(String? v) => _byValue(ReportStatus.values, v);
+}
+
 T? _byValue<T extends Enum>(List<T> values, String? v) {
   if (v == null) return null;
   for (final e in values) {

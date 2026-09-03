@@ -6,6 +6,8 @@ import '../../features/admin/admin_home.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/auth/link_callback_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
+import '../../features/auth/reset_request_screen.dart';
+import '../../features/auth/set_password_screen.dart';
 import '../../features/auth/splash_screen.dart';
 import '../../features/common/error_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
@@ -42,10 +44,16 @@ GoRouter createRouter({AppAuth? auth}) {
 String? _guard(AppAuth auth, GoRouterState state) {
   final loc = state.matchedLocation;
 
-  // The email-confirmation deep link lands here. If it carries an error we
+  // A recovery deep link opened a temporary session — force the set-password
+  // screen until the user sets a new password (or cancels).
+  if (auth.passwordRecovery) {
+    return loc == '/set-password' ? null : '/set-password';
+  }
+
+  // The confirmation/recovery deep link lands here. If it carries an error we
   // keep the user on the callback screen (it shows "Link expired" + resend);
-  // otherwise supabase_flutter is exchanging the code and the session arrives
-  // shortly, at which point this guard routes onward.
+  // otherwise supabase_flutter is exchanging the code and the session/event
+  // arrives shortly, at which point this guard routes onward.
   if (loc == '/login-callback') {
     final qp = state.uri.queryParameters;
     final hasError = qp.containsKey('error') ||
@@ -61,9 +69,10 @@ String? _guard(AppAuth auth, GoRouterState state) {
   if (auth.loading) return loc == '/splash' ? null : '/splash';
 
   final onAuth = loc == '/auth';
+  final onReset = loc == '/reset-request';
   final onOnboarding = loc == '/onboarding';
 
-  if (!auth.isLoggedIn) return onAuth ? null : '/auth';
+  if (!auth.isLoggedIn) return (onAuth || onReset) ? null : '/auth';
   if (!auth.profileComplete) return onOnboarding ? null : '/onboarding';
 
   // Signed in + onboarded: keep them out of the auth/splash screens.
@@ -77,6 +86,14 @@ final List<RouteBase> _routes = [
     GoRoute(
       path: '/login-callback',
       builder: (_, _) => const LinkCallbackScreen(),
+    ),
+    GoRoute(
+      path: '/reset-request',
+      builder: (_, _) => const ResetRequestScreen(),
+    ),
+    GoRoute(
+      path: '/set-password',
+      builder: (_, _) => const SetPasswordScreen(),
     ),
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
     StatefulShellRoute.indexedStack(

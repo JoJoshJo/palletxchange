@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/config/supabase_config.dart';
 import '../models/conversation.dart';
 import '../models/deal.dart';
 import '../models/delivery.dart';
@@ -32,15 +34,23 @@ import 'services/delivery_service.dart';
 import 'services/matching_service.dart';
 import 'services/message_service.dart';
 import 'services/request_service.dart';
+import 'supabase/supabase_listing_repository.dart';
+import 'supabase/supabase_profile_repository.dart';
+import 'auth/app_auth.dart';
 
-/// Repository providers. Swapping to Supabase later = override just these in
-/// ProviderScope; no UI or controller changes required (BRAIN §6, §12).
+/// Repository providers. profiles + listings are REAL (Supabase) when the app
+/// is configured; the rest remain fake until their swap. Fake fallbacks keep
+/// the app runnable in ungated dev (no env).
 final listingRepositoryProvider = Provider<ListingRepository>((ref) {
-  return FakeListingRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseListingRepository()
+      : FakeListingRepository();
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return FakeProfileRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseProfileRepository()
+      : FakeProfileRepository();
 });
 
 final dealRepositoryProvider = Provider<DealRepository>((ref) {
@@ -72,9 +82,22 @@ final currentProfileProvider = FutureProvider<Profile>((ref) {
   return ref.watch(profileRepositoryProvider).getCurrentProfile();
 });
 
-/// Synchronous access to the demo user's id/profile — the whole app assumes a
-/// signed-in trader (real auth arrives in Milestone 3).
-final currentUserProvider = Provider<Profile>((ref) => FakeSeed.currentUser);
+/// Synchronous access to the signed-in user's profile. When Supabase is
+/// configured this is the REAL cached profile (from AppAuth); otherwise the
+/// fake demo trader (ungated dev). A minimal fallback covers the brief window
+/// before the profile row is cached.
+final currentUserProvider = Provider<Profile>((ref) {
+  if (!SupabaseConfig.isConfigured) return FakeSeed.currentUser;
+  final cached = appAuth.currentProfile;
+  if (cached != null) return cached;
+  final user = Supabase.instance.client.auth.currentUser;
+  return Profile(
+    id: user?.id ?? 'unknown',
+    name: user?.email ?? 'You',
+    email: user?.email,
+    accountType: AccountType.individual,
+  );
+});
 
 final profileByIdProvider =
     FutureProvider.family<Profile?, String>((ref, id) {

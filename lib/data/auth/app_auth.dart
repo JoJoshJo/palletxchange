@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/supabase_config.dart';
+import '../../models/profile.dart';
 
 /// App-wide auth + profile-completion state, used by the router to gate access.
 ///
@@ -13,6 +14,9 @@ class AppAuth extends ChangeNotifier {
   AppAuth(this._client) {
     _session = _client.auth.currentSession;
     _sub = _client.auth.onAuthStateChange.listen((data) async {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        _passwordRecovery = true;
+      }
       _session = data.session;
       await _refreshProfile();
       notifyListeners();
@@ -24,13 +28,24 @@ class AppAuth extends ChangeNotifier {
   StreamSubscription<AuthState>? _sub;
 
   Session? _session;
+  Profile? _profile;
   bool _profileComplete = false;
   bool _loading = true;
+  bool _passwordRecovery = false;
 
   Session? get session => _session;
   bool get isLoggedIn => _session != null;
   bool get profileComplete => _profileComplete;
   bool get loading => _loading;
+
+  /// The signed-in user's full profile row (cached; refreshed on auth change
+  /// and after onboarding).
+  Profile? get currentProfile => _profile;
+
+  /// True while a recovery session is active (opened from a reset-password
+  /// link) — the router routes to the "set new password" screen.
+  bool get passwordRecovery => _passwordRecovery;
+
   String? get userId => _session?.user.id;
   String? get email => _session?.user.email;
 
@@ -40,22 +55,30 @@ class AppAuth extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reads the profiles row and marks the profile complete once onboarding has
-  /// set a name.
+  /// Reads the profiles row, caches it, and marks the profile complete once
+  /// onboarding has set a name.
   Future<void> _refreshProfile() async {
     if (_session == null) {
+      _profile = null;
       _profileComplete = false;
       return;
     }
     try {
       final row = await _client
           .from('profiles')
-          .select('name, account_type')
+          .select()
           .eq('id', _session!.user.id)
           .maybeSingle();
-      final name = row?['name'] as String?;
-      _profileComplete = name != null && name.trim().isNotEmpty;
+      if (row == null) {
+        _profile = null;
+        _profileComplete = false;
+        return;
+      }
+      _profile = Profile.fromJson(row);
+      final name = _profile!.name;
+      _profileComplete = name.trim().isNotEmpty;
     } catch (_) {
+      _profile = null;
       _profileComplete = false;
     }
   }
@@ -95,6 +118,30 @@ class AppAuth extends ChangeNotifier {
   }
 
   Future<void> signOut() => _client.auth.signOut();
+
+  /// Send a password-reset email; the link returns to the app via the same
+  /// login-callback deep link.
+  Future<void> sendPasswordReset(String email) {
+    return _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: SupabaseConfig.authRedirectUrl,
+    );
+  }
+
+  /// Set a new password for the recovery session, then clear recovery mode.
+  Future<void> updatePassword(String newPassword) async {
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+    _passwordRecovery = false;
+    notifyListeners();
+  }
+
+  /// Abandon a recovery flow (e.g. user backs out).
+  void clearPasswordRecovery() {
+    if (_passwordRecovery) {
+      _passwordRecovery = false;
+      notifyListeners();
+    }
+  }
 
   @override
   void dispose() {

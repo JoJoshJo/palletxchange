@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config/supabase_config.dart';
-import '../../core/dev/dev_role_switch.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
 import '../../data/auth/app_auth.dart';
@@ -67,8 +66,6 @@ class YouScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          const DevRoleSwitch(),
           const SizedBox(height: 24),
           _MenuItem(icon: Icons.storefront_outlined, label: 'My storefront'),
           _MenuItem(icon: Icons.settings_outlined, label: 'Settings'),

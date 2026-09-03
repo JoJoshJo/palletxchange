@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -142,6 +143,17 @@ class _AuthScreenState extends State<AuthScreen> {
                       validator: (v) =>
                           (v ?? '').length < 6 ? 'At least 6 characters' : null,
                     ),
+
+                    if (!_isSignUp)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _busy
+                              ? null
+                              : () => context.push('/reset-request'),
+                          child: const Text('Forgot password?'),
+                        ),
+                      ),
 
                     if (_error != null) ...[
                       const SizedBox(height: 16),

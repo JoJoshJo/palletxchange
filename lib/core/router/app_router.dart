@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/auth/app_auth.dart';
+import '../../models/enums.dart';
 import '../../features/admin/admin_home.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/auth/link_callback_screen.dart';
@@ -75,8 +76,33 @@ String? _guard(AppAuth auth, GoRouterState state) {
   if (!auth.isLoggedIn) return (onAuth || onReset) ? null : '/auth';
   if (!auth.profileComplete) return onOnboarding ? null : '/onboarding';
 
-  // Signed in + onboarded: keep them out of the auth/splash screens.
-  if (onAuth || onOnboarding || loc == '/splash') return '/browse';
+  // Role-based home: drivers get the driver shell, traders the marketplace.
+  final profile = auth.currentProfile;
+  final isDriver = profile?.accountType == AccountType.driver;
+  final isAdmin = profile?.isAdmin ?? false;
+  final home = isDriver ? '/driver' : '/browse';
+
+  // From auth/splash/onboarding/callback, land on the right home.
+  if (onAuth ||
+      onReset ||
+      onOnboarding ||
+      loc == '/splash' ||
+      loc == '/login-callback') {
+    return home;
+  }
+
+  // Admin panel is gated to admins.
+  if (loc == '/admin' && !isAdmin) return home;
+
+  // A driver cannot buy/sell — confine them to the driver shell (a driver who
+  // is also an admin may still open /admin). Keep traders out of /driver.
+  if (isDriver) {
+    final allowed =
+        loc == '/driver' || loc == '/set-password' || (loc == '/admin' && isAdmin);
+    if (!allowed) return '/driver';
+  } else if (loc == '/driver') {
+    return '/browse';
+  }
   return null;
 }
 

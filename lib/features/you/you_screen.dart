@@ -67,6 +67,21 @@ class YouScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
+          if (me.isAdmin)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.shield_outlined, color: AppColors.teal),
+              title: const Text(
+                'Admin panel',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.teal,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right,
+                  size: 20, color: AppColors.textMuted),
+              onTap: () => context.push('/admin'),
+            ),
           _MenuItem(icon: Icons.storefront_outlined, label: 'My storefront'),
           _MenuItem(icon: Icons.settings_outlined, label: 'Settings'),
           _MenuItem(icon: Icons.help_outline, label: 'Help & support'),

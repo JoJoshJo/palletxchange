@@ -14,6 +14,13 @@ class DriverJobsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserProvider);
+    if (!me.driverApproved) {
+      return Scaffold(
+        appBar: AppBar(title: const BrandWordmark()),
+        body: const _PendingApproval(),
+      );
+    }
     final jobsAsync = ref.watch(openJobsProvider);
     return Scaffold(
       appBar: AppBar(title: const BrandWordmark()),
@@ -41,6 +48,60 @@ class DriverJobsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PendingApproval extends StatelessWidget {
+  const _PendingApproval();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                color: AppColors.teal.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.verified_user_outlined,
+                  size: 40, color: AppColors.teal),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Approval pending',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Upload your license and insurance to get approved. '
+              "You'll be able to claim jobs once an admin approves you.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textMuted, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Document upload — coming with Storage'),
+                ),
+              ),
+              icon: const Icon(Icons.upload_file_outlined),
+              label: const Text('Upload license & insurance'),
+            ),
+          ],
+        ),
       ),
     );
   }

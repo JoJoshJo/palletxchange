@@ -34,8 +34,14 @@ import 'services/delivery_service.dart';
 import 'services/matching_service.dart';
 import 'services/message_service.dart';
 import 'services/request_service.dart';
+import 'supabase/supabase_deal_repository.dart';
+import 'supabase/supabase_delivery_repository.dart';
 import 'supabase/supabase_listing_repository.dart';
+import 'supabase/supabase_message_repository.dart';
 import 'supabase/supabase_profile_repository.dart';
+import 'supabase/supabase_report_repository.dart';
+import 'supabase/supabase_request_repository.dart';
+import 'supabase/supabase_review_repository.dart';
 import 'auth/app_auth.dart';
 
 /// Repository providers. profiles + listings are REAL (Supabase) when the app
@@ -54,27 +60,39 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 });
 
 final dealRepositoryProvider = Provider<DealRepository>((ref) {
-  return FakeDealRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseDealRepository()
+      : FakeDealRepository();
 });
 
 final requestRepositoryProvider = Provider<RequestRepository>((ref) {
-  return FakeRequestRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseRequestRepository()
+      : FakeRequestRepository();
 });
 
 final reviewRepositoryProvider = Provider<ReviewRepository>((ref) {
-  return FakeReviewRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseReviewRepository()
+      : FakeReviewRepository();
 });
 
 final messageRepositoryProvider = Provider<MessageRepository>((ref) {
-  return FakeMessageRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseMessageRepository()
+      : FakeMessageRepository();
 });
 
 final deliveryRepositoryProvider = Provider<DeliveryRepository>((ref) {
-  return FakeDeliveryRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseDeliveryRepository()
+      : FakeDeliveryRepository();
 });
 
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
-  return FakeReportRepository();
+  return SupabaseConfig.isConfigured
+      ? SupabaseReportRepository()
+      : FakeReportRepository();
 });
 
 /// The signed-in user's profile (fixed demo trader until auth lands).
@@ -213,8 +231,9 @@ final messagesProvider =
 final deliveryServiceProvider =
     Provider<DeliveryService>((ref) => DeliveryService(ref));
 
-/// The demo driver profile (dev role switch until auth lands).
-final currentDriverProvider = Provider<Profile>((ref) => FakeSeed.demoDriver);
+/// The signed-in driver = the current user (their account_type is driver).
+final currentDriverProvider =
+    Provider<Profile>((ref) => ref.watch(currentUserProvider));
 
 final openJobsProvider = FutureProvider<List<Delivery>>((ref) {
   return ref.watch(deliveryRepositoryProvider).getOpenJobs();

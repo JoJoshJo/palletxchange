@@ -423,13 +423,23 @@ class _SpecCell extends StatelessWidget {
   }
 }
 
-class _StickyActions extends StatelessWidget {
+class _StickyActions extends ConsumerStatefulWidget {
   const _StickyActions({required this.listing});
 
   final Listing listing;
 
   @override
+  ConsumerState<_StickyActions> createState() => _StickyActionsState();
+}
+
+class _StickyActionsState extends ConsumerState<_StickyActions> {
+  bool _busy = false;
+
+  @override
   Widget build(BuildContext context) {
+    final me = ref.watch(currentUserProvider);
+    final isOwnListing = widget.listing.sellerId == me.id;
+
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.bg,
@@ -441,33 +451,62 @@ class _StickyActions extends StatelessWidget {
         16,
         12 + MediaQuery.of(context).padding.bottom,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: ElevatedButton.icon(
-              onPressed: () => _stub(context, 'Request Deal'),
-              icon: const Icon(Icons.handshake_outlined),
-              label: const Text('Request Deal'),
+      child: isOwnListing
+          ? const Center(
+              child: Text(
+                'This is your listing.',
+                style: TextStyle(color: AppColors.textMuted),
+              ),
+            )
+          : Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: _busy ? null : _requestDeal,
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: AppColors.onDark,
+                            ),
+                          )
+                        : const Icon(Icons.handshake_outlined),
+                    label: const Text('Request Deal'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    // Messaging must originate from a deal or request — send a
+                    // targeted Special Request to ask this seller (BRAIN §5).
+                    onPressed: _busy
+                        ? null
+                        : () => context
+                            .push('/request?sellerId=${widget.listing.sellerId}'),
+                    child: const Text('Message'),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => _stub(context, 'Message'),
-              child: const Text('Message'),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  void _stub(BuildContext context, String action) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text('$action — coming with deals & messaging')),
-      );
+  Future<void> _requestDeal() async {
+    setState(() => _busy = true);
+    try {
+      final dealId =
+          await ref.read(dealServiceProvider).requestDeal(widget.listing);
+      if (mounted) context.go('/deals/deal/$dealId');
+    } catch (_) {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't open the deal — try again.")),
+        );
+      }
+    }
   }
 }

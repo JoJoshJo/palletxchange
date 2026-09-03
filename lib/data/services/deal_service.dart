@@ -1,34 +1,79 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/deal.dart';
+import '../../models/delivery.dart';
 import '../../models/enums.dart';
+import '../../models/listing.dart';
 import '../../models/review.dart';
 import '../providers.dart';
 
-/// Drives the deal state machine (BRAIN §7) over the in-memory repos and keeps
-/// dependent providers fresh:
-///   pending → accepted | declined
-///   accepted → completed
-///   any non-terminal → cancelled
-/// Reserve-on-accept: decrement listing quantity on accept (floor 0 →
-/// sold_out); restore it if an accepted deal is cancelled/declined.
+/// Drives the deal state machine (BRAIN §7). Inventory reserve-on-accept and
+/// completed_at stamping are enforced by DB triggers — this service only issues
+/// the status change and refreshes providers; it never does inventory math.
 class DealService {
   DealService(this.ref);
 
   final Ref ref;
 
+  /// Buyer opens a deal from a listing (Request Deal), then a thread opens.
+  Future<String> requestDeal(Listing listing) async {
+    final me = ref.read(currentUserProvider);
+    final fulfillment = listing.pickupAvailable
+        ? FulfillmentMethod.pickup
+        : FulfillmentMethod.delivery;
+    final created = await ref.read(dealRepositoryProvider).createDeal(
+          Deal(
+            id: 'pending',
+            listingId: listing.id,
+            buyerId: me.id,
+            sellerId: listing.sellerId,
+            quantity: listing.minOrderQuantity,
+            pricePerPallet: listing.pricePerPallet,
+            fulfillmentMethod: fulfillment,
+            paymentStatus: listing.isFree
+                ? PaymentStatus.notRequired
+                : PaymentStatus.unpaid,
+            dealStatus: DealStatus.pending,
+          ),
+        );
+
+    // Open the thread with an auto message (BRAIN §5).
+    await ref.read(messageServiceProvider).sendDealOpener(created, listing);
+
+    ref.invalidate(myDealsProvider);
+    ref.invalidate(myConversationsProvider);
+    return created.id;
+  }
+
   Future<void> accept(Deal deal) async {
     if (deal.dealStatus != DealStatus.pending) return;
-    await _reserveInventory(deal);
     await ref
         .read(dealRepositoryProvider)
         .updateDeal(deal.copyWith(dealStatus: DealStatus.accepted));
+
+    // Post the delivery leg to the driver job board (BRAIN §5).
+    if (deal.fulfillmentMethod == FulfillmentMethod.delivery) {
+      final listing =
+          await ref.read(listingRepositoryProvider).getListingById(deal.listingId);
+      final pickup = [listing?.address, listing?.city, listing?.state]
+          .where((p) => p != null && p.isNotEmpty)
+          .join(', ');
+      await ref.read(deliveryRepositoryProvider).createDelivery(
+            Delivery(
+              id: 'pending',
+              dealId: deal.id,
+              pickupAddress: pickup.isEmpty ? 'Pickup TBD' : pickup,
+              dropoffAddress: deal.deliveryAddress ?? 'Drop-off TBD',
+              deliveryStatus: DeliveryStatus.requested,
+            ),
+          );
+      ref.invalidate(openJobsProvider);
+    }
     _refresh(deal);
   }
 
   Future<void> decline(Deal deal) async {
     if (deal.dealStatus != DealStatus.pending) return;
-    // Pending never reserved inventory, so nothing to restore.
     await ref
         .read(dealRepositoryProvider)
         .updateDeal(deal.copyWith(dealStatus: DealStatus.declined));
@@ -37,10 +82,9 @@ class DealService {
 
   Future<void> complete(Deal deal) async {
     if (deal.dealStatus != DealStatus.accepted) return;
-    await ref.read(dealRepositoryProvider).updateDeal(deal.copyWith(
-          dealStatus: DealStatus.completed,
-          completedAt: DateTime.now(),
-        ));
+    await ref
+        .read(dealRepositoryProvider)
+        .updateDeal(deal.copyWith(dealStatus: DealStatus.completed));
     _refresh(deal);
   }
 
@@ -50,17 +94,12 @@ class DealService {
         deal.dealStatus == DealStatus.declined) {
       return;
     }
-    // Restore inventory only if it had been reserved (accepted).
-    if (deal.dealStatus == DealStatus.accepted) {
-      await _restoreInventory(deal);
-    }
     await ref
         .read(dealRepositoryProvider)
         .updateDeal(deal.copyWith(dealStatus: DealStatus.cancelled));
     _refresh(deal);
   }
 
-  /// Seller sets a delivery-fee quote on a delivery deal.
   Future<void> setDeliveryFee(Deal deal, double fee) async {
     await ref
         .read(dealRepositoryProvider)
@@ -71,30 +110,6 @@ class DealService {
   Future<void> submitReview(Review review) async {
     await ref.read(reviewRepositoryProvider).createReview(review);
     ref.invalidate(hasReviewedProvider(review.dealId));
-  }
-
-  Future<void> _reserveInventory(Deal deal) async {
-    final repo = ref.read(listingRepositoryProvider);
-    final listing = await repo.getListingById(deal.listingId);
-    if (listing == null) return;
-    final next = (listing.quantityAvailable - deal.quantity).clamp(0, 1 << 31);
-    await repo.updateListing(listing.copyWith(
-      quantityAvailable: next,
-      status: next == 0 ? ListingStatus.soldOut : listing.status,
-    ));
-  }
-
-  Future<void> _restoreInventory(Deal deal) async {
-    final repo = ref.read(listingRepositoryProvider);
-    final listing = await repo.getListingById(deal.listingId);
-    if (listing == null) return;
-    final restored = listing.quantityAvailable + deal.quantity;
-    await repo.updateListing(listing.copyWith(
-      quantityAvailable: restored,
-      status: listing.status == ListingStatus.soldOut
-          ? ListingStatus.active
-          : listing.status,
-    ));
   }
 
   void _refresh(Deal deal) {

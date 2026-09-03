@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../core/dev/dev_role_switch.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
 import 'tabs/admin_listings_tab.dart';
@@ -22,19 +22,9 @@ class AdminHome extends StatelessWidget {
           title: const BrandWordmark(),
           actions: [
             IconButton(
-              tooltip: 'Switch role (dev)',
-              icon: const Icon(Icons.switch_account_outlined),
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                backgroundColor: AppColors.bg,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (_) => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: DevRoleSwitch(),
-                ),
-              ),
+              tooltip: 'Back to app',
+              icon: const Icon(Icons.close),
+              onPressed: () => context.go('/browse'),
             ),
           ],
           bottom: const TabBar(

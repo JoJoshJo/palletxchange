@@ -122,6 +122,13 @@ class FakeDeliveryRepository implements DeliveryRepository {
   }
 
   @override
+  Future<Delivery> createDelivery(Delivery delivery) async {
+    await _latency();
+    _deliveries.add(delivery);
+    return delivery;
+  }
+
+  @override
   Future<Delivery> updateDelivery(Delivery delivery) async {
     await _latency();
     final i = _deliveries.indexWhere((d) => d.id == delivery.id);

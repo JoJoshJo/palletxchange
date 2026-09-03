@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/dev/dev_role_switch.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
+import '../../data/auth/app_auth.dart';
 import '../../data/providers.dart';
 
 class DriverYouScreen extends ConsumerWidget {
@@ -70,7 +72,33 @@ class DriverYouScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const DevRoleSwitch(),
+          if (driver.driverApproved)
+            Row(
+              children: const [
+                Icon(Icons.verified, size: 18, color: AppColors.green),
+                SizedBox(width: 8),
+                Text('Approved driver',
+                    style: TextStyle(color: AppColors.textMuted)),
+              ],
+            )
+          else
+            Row(
+              children: const [
+                Icon(Icons.hourglass_top, size: 18, color: AppColors.teal),
+                SizedBox(width: 8),
+                Text('Approval pending',
+                    style: TextStyle(color: AppColors.textMuted)),
+              ],
+            ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () async {
+              await appAuth.signOut();
+              if (context.mounted) context.go('/auth');
+            },
+            icon: const Icon(Icons.logout),
+            label: const Text('Sign out'),
+          ),
         ],
       ),
     );

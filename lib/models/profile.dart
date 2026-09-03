@@ -18,6 +18,7 @@ class Profile {
     this.longitude,
     this.verifiedStatus = false,
     this.rating,
+    this.driverApproved = false,
     this.createdAt,
   });
 
@@ -38,6 +39,9 @@ class Profile {
 
   /// Computed from reviews server-side; may be null when unrated.
   final double? rating;
+
+  /// Driver vetting: approved to claim jobs (admin-granted).
+  final bool driverApproved;
   final DateTime? createdAt;
 
   /// Name shown on cards: business name when present, else personal name.
@@ -63,6 +67,7 @@ class Profile {
         longitude: (json['longitude'] as num?)?.toDouble(),
         verifiedStatus: json['verified_status'] as bool? ?? false,
         rating: (json['rating'] as num?)?.toDouble(),
+        driverApproved: json['driver_approved'] as bool? ?? false,
         createdAt: json['created_at'] == null
             ? null
             : DateTime.parse(json['created_at'] as String),
@@ -103,6 +108,7 @@ class Profile {
     double? longitude,
     bool? verifiedStatus,
     double? rating,
+    bool? driverApproved,
     DateTime? createdAt,
   }) =>
       Profile(
@@ -121,6 +127,7 @@ class Profile {
         longitude: longitude ?? this.longitude,
         verifiedStatus: verifiedStatus ?? this.verifiedStatus,
         rating: rating ?? this.rating,
+        driverApproved: driverApproved ?? this.driverApproved,
         createdAt: createdAt ?? this.createdAt,
       );
 }

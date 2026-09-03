@@ -1,0 +1,381 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/format.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/pallet_photo.dart';
+import '../../core/widgets/trust_widgets.dart';
+import '../../data/providers.dart';
+import '../../models/listing.dart';
+
+class ListingDetailScreen extends ConsumerWidget {
+  const ListingDetailScreen({super.key, required this.listingId});
+
+  final String listingId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(listingByIdProvider(listingId));
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Listing')),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => const Center(child: Text("Couldn't load listing")),
+        data: (listing) {
+          if (listing == null) {
+            return const Center(child: Text('Listing not found'));
+          }
+          return _Content(listing: listing);
+        },
+      ),
+    );
+  }
+}
+
+class _Content extends StatelessWidget {
+  const _Content({required this.listing});
+
+  final Listing listing;
+
+  @override
+  Widget build(BuildContext context) {
+    final seller = listing.seller;
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // 1. Photos.
+              PalletPhoto(
+                url: listing.photos.isNotEmpty ? listing.photos.first : null,
+                height: 260,
+                width: double.infinity,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      listing.title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.place_outlined,
+                            size: 16, color: AppColors.textMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${listing.locationLabel} · ${distanceLabel(listing.distanceMiles)}',
+                          style: const TextStyle(color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // 2. Price.
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          listing.isFree ? 'Free' : money(listing.pricePerPallet),
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        if (!listing.isFree) ...[
+                          const SizedBox(width: 6),
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '/ pallet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        ConditionBadge(
+                          label: listing.condition.label,
+                          recyclable: listing.condition.isRecyclable,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 24, indent: 20, endIndent: 20),
+              // 3. Seller trust.
+              if (seller != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppColors.navy,
+                        child: Text(
+                          seller.displayName.characters.first.toUpperCase(),
+                          style: const TextStyle(
+                            color: AppColors.onDark,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SellerTrustLine(
+                              name: seller.displayName,
+                              verified: seller.verifiedStatus,
+                              rating: seller.rating,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              seller.verifiedStatus
+                                  ? 'Verified business'
+                                  : 'Unverified seller',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 20),
+              // 4. Spec grid.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SpecGrid(listing: listing),
+              ),
+              if (listing.notes != null && listing.notes!.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Notes',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        listing.notes!,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              // Address gated until a deal exists (BRAIN §11).
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.lock_outline, size: 18, color: AppColors.teal),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Exact pickup address is shown after a deal is opened.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+        _StickyActions(listing: listing),
+      ],
+    );
+  }
+}
+
+class _SpecGrid extends StatelessWidget {
+  const _SpecGrid({required this.listing});
+
+  final Listing listing;
+
+  @override
+  Widget build(BuildContext context) {
+    final specs = <(IconData, String, String)>[
+      (Icons.category_outlined, 'Type', listing.palletType.label),
+      (Icons.straighten, 'Size', listing.palletSize.label),
+      (
+        Icons.inventory_2_outlined,
+        'Available',
+        '${listing.quantityAvailable} pallets'
+      ),
+      (Icons.shopping_cart_outlined, 'Min order', '${listing.minOrderQuantity}'),
+      (
+        Icons.local_shipping_outlined,
+        'Fulfillment',
+        [
+          if (listing.pickupAvailable) 'Pickup',
+          if (listing.deliveryAvailable) 'Delivery',
+        ].join(' · '),
+      ),
+      if (listing.forkliftAvailable)
+        (Icons.precision_manufacturing_outlined, 'Forklift', 'On site'),
+      if (listing.loadingDockAvailable)
+        (Icons.warehouse_outlined, 'Loading dock', 'Available'),
+      if (listing.exchangeAllowed)
+        (Icons.swap_horiz, 'Exchange', 'Accepted'),
+    ];
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 3.0,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      children: specs
+          .map((s) => _SpecCell(icon: s.$1, label: s.$2, value: s.$3))
+          .toList(),
+    );
+  }
+}
+
+class _SpecCell extends StatelessWidget {
+  const _SpecCell({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.orange),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StickyActions extends StatelessWidget {
+  const _StickyActions({required this.listing});
+
+  final Listing listing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.bg,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        12 + MediaQuery.of(context).padding.bottom,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: () => _stub(context, 'Request Deal'),
+              icon: const Icon(Icons.handshake_outlined),
+              label: const Text('Request Deal'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => _stub(context, 'Message'),
+              child: const Text('Message'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _stub(BuildContext context, String action) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('$action — coming with deals & messaging')),
+      );
+  }
+}

@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
@@ -44,6 +47,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   bool _active = true;
 
   bool _saving = false;
+
+  static const int _maxPhotos = 5;
+  final _picker = ImagePicker();
+  final List<XFile> _photos = [];
 
   @override
   void dispose() {
@@ -240,29 +247,31 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
               title: 'Photos',
               icon: Icons.photo_camera_outlined,
               children: [
-                Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.border,
-                      style: BorderStyle.solid,
-                    ),
+                SizedBox(
+                  height: 96,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _photos.length + (_photos.length < _maxPhotos ? 1 : 0),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      if (i == _photos.length) {
+                        return _AddPhotoTile(
+                          onTap: _saving ? null : _pickPhoto,
+                        );
+                      }
+                      return _PhotoThumb(
+                        file: _photos[i],
+                        onRemove: _saving
+                            ? null
+                            : () => setState(() => _photos.removeAt(i)),
+                      );
+                    },
                   ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_a_photo_outlined,
-                          size: 32, color: AppColors.textMuted),
-                      SizedBox(height: 8),
-                      Text(
-                        'Photo upload arrives with the backend',
-                        style:
-                            TextStyle(fontSize: 12, color: AppColors.textMuted),
-                      ),
-                    ],
-                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Add up to $_maxPhotos photos. The first is the cover.',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
               ],
             ),
@@ -287,14 +296,83 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     );
   }
 
+  Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        imageQuality: 75, // compress before upload
+      );
+      if (picked != null && mounted) {
+        setState(() => _photos.add(picked));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't open the camera/gallery")),
+        );
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+
+    // Upload photos first; collect their URLs.
+    final photoUrls = <String>[];
+    try {
+      final storage = ref.read(storageRepositoryProvider);
+      for (final x in _photos) {
+        final bytes = await x.readAsBytes();
+        final ext = x.name.contains('.') ? x.name.split('.').last : 'jpg';
+        final url = await storage.uploadListingPhoto(
+          bytes: bytes,
+          fileExtension: ext.toLowerCase(),
+          contentType: _contentTypeFor(ext),
+        );
+        photoUrls.add(url);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't upload photos — try again")),
+      );
+      return;
+    }
 
     final me = ref.read(currentProfileProvider).value;
     final listing = Listing(
       id: 'pending',
       sellerId: me?.id ?? 'me',
+      photos: photoUrls,
       title: _title.text.trim(),
       palletType: _type,
       palletSize: _size,
@@ -333,6 +411,19 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Couldn't publish — try again")),
       );
+    }
+  }
+
+  String _contentTypeFor(String ext) {
+    switch (ext.toLowerCase()) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      default:
+        return 'image/jpeg';
     }
   }
 
@@ -470,6 +561,77 @@ class _Section extends StatelessWidget {
           ...children,
         ],
       ),
+    );
+  }
+}
+
+class _AddPhotoTile extends StatelessWidget {
+  const _AddPhotoTile({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_a_photo_outlined,
+                size: 26, color: AppColors.textMuted),
+            SizedBox(height: 4),
+            Text('Add', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoThumb extends StatelessWidget {
+  const _PhotoThumb({required this.file, required this.onRemove});
+
+  final XFile file;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            File(file.path),
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
+          ),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 15, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

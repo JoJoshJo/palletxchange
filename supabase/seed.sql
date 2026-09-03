@@ -21,7 +21,7 @@
 do $$
 declare
   -- >>> EDIT THIS LINE: paste a real profiles.id to own the starter listings.
-  seller_uid uuid := 'PASTE-PROFILE-UID-HERE';
+  seller_uid uuid := '21b4c24f-c553-401e-9ac3-b1e861a29ce2';
 begin
   if not exists (select 1 from public.profiles where id = seller_uid) then
     raise exception

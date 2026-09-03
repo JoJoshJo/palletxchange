@@ -28,6 +28,7 @@ import 'repositories/profile_repository.dart';
 import 'repositories/report_repository.dart';
 import 'repositories/request_repository.dart';
 import 'repositories/review_repository.dart';
+import 'repositories/storage_repository.dart';
 import 'services/admin_service.dart';
 import 'services/deal_service.dart';
 import 'services/delivery_service.dart';
@@ -42,6 +43,7 @@ import 'supabase/supabase_profile_repository.dart';
 import 'supabase/supabase_report_repository.dart';
 import 'supabase/supabase_request_repository.dart';
 import 'supabase/supabase_review_repository.dart';
+import 'supabase/supabase_storage_repository.dart';
 import 'auth/app_auth.dart';
 
 /// Repository providers. profiles + listings are REAL (Supabase) when the app
@@ -93,6 +95,12 @@ final reportRepositoryProvider = Provider<ReportRepository>((ref) {
   return SupabaseConfig.isConfigured
       ? SupabaseReportRepository()
       : FakeReportRepository();
+});
+
+final storageRepositoryProvider = Provider<StorageRepository>((ref) {
+  return SupabaseConfig.isConfigured
+      ? SupabaseStorageRepository()
+      : NoopStorageRepository();
 });
 
 /// The signed-in user's profile (fixed demo trader until auth lands).

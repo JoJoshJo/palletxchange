@@ -66,6 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Photo upload for listings. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PalletXchange needs access to your photos so you can add pictures to your listings.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>PalletXchange needs camera access so you can photograph pallets for your listings.</string>
 	<!-- Supabase auth deep link (email confirmation / OAuth callback). -->
 	<key>CFBundleURLTypes</key>
 	<array>

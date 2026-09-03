@@ -49,12 +49,8 @@ class _Content extends StatelessWidget {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              // 1. Photos.
-              PalletPhoto(
-                url: listing.photos.isNotEmpty ? listing.photos.first : null,
-                height: 260,
-                width: double.infinity,
-              ),
+              // 1. Photos — swipeable carousel when there are several.
+              _PhotoCarousel(photos: listing.photos),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                 child: Column(
@@ -319,6 +315,73 @@ class _ReportButton extends ConsumerWidget {
         const SnackBar(content: Text('Report submitted — thank you')),
       );
     }
+  }
+}
+
+class _PhotoCarousel extends StatefulWidget {
+  const _PhotoCarousel({required this.photos});
+
+  final List<String> photos;
+
+  @override
+  State<_PhotoCarousel> createState() => _PhotoCarouselState();
+}
+
+class _PhotoCarouselState extends State<_PhotoCarousel> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = widget.photos;
+    if (photos.isEmpty) {
+      return const PalletPhoto(height: 260, width: double.infinity);
+    }
+    return SizedBox(
+      height: 260,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: photos.length,
+            onPageChanged: (i) => setState(() => _index = i),
+            itemBuilder: (_, i) => PalletPhoto(
+              url: photos[i],
+              height: 260,
+              width: double.infinity,
+            ),
+          ),
+          if (photos.length > 1)
+            Positioned(
+              bottom: 12,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  photos.length,
+                  (i) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: i == _index ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i == _index ? AppColors.onDark : AppColors.onDarkMuted,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

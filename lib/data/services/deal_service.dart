@@ -100,6 +100,16 @@ class DealService {
     _refresh(deal);
   }
 
+  /// Buyer edits the requested quantity while the deal is still pending (no
+  /// inventory is reserved yet). total_price is recomputed by the DB trigger.
+  Future<void> updateQuantity(Deal deal, int quantity) async {
+    if (deal.dealStatus != DealStatus.pending) return;
+    await ref
+        .read(dealRepositoryProvider)
+        .updateDeal(deal.copyWith(quantity: quantity));
+    _refresh(deal);
+  }
+
   Future<void> setDeliveryFee(Deal deal, double fee) async {
     await ref
         .read(dealRepositoryProvider)

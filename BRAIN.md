@@ -298,3 +298,4 @@ Record anything deferred in the list below, with a reason.
 - **Google OAuth provider** — deferred: email/password shipped first; Google enabled when its Cloud OAuth client is configured.
 - **App-store gates** (in-app account deletion action, privacy policy, ToS) — deferred: pre-launch milestone (§12.14).
 - **Push notifications (FCM) + DB webhooks/Edge Functions** — deferred: notifications milestone (§9, §12.13).
+- **Post-acceptance quantity change (renegotiation)** — deferred; only pending-stage quantity edits are supported. Changing quantity after accept would require re-reservation/renegotiation of inventory, which is out of scope for now.

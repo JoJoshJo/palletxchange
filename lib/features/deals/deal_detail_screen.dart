@@ -102,7 +102,17 @@ class _DealBody extends ConsumerWidget {
                         ),
                       ),
                     _divider(),
-                    _row('Quantity', value: '${deal.quantity} pallets'),
+                    if (!isSeller && deal.dealStatus == DealStatus.pending)
+                      _row(
+                        'Quantity',
+                        child: _QuantityEditor(
+                          deal: deal,
+                          minOrder: listing.valueOrNull?.minOrderQuantity ?? 1,
+                          available: listing.valueOrNull?.quantityAvailable,
+                        ),
+                      )
+                    else
+                      _row('Quantity', value: '${deal.quantity} pallets'),
                     _divider(),
                     _row('Unit price', value: money(deal.pricePerPallet)),
                     _divider(),
@@ -247,6 +257,106 @@ class _DealBody extends ConsumerWidget {
     if (fee != null) {
       await ref.read(dealServiceProvider).setDeliveryFee(deal, fee);
     }
+  }
+}
+
+/// Buyer-only, pending-only stepper to change the requested quantity, bounded
+/// by the listing's min order and available quantity.
+class _QuantityEditor extends ConsumerWidget {
+  const _QuantityEditor({
+    required this.deal,
+    required this.minOrder,
+    this.available,
+  });
+
+  final Deal deal;
+  final int minOrder;
+  final int? available;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final maxQ = available ?? deal.quantity;
+    final canDec = deal.quantity > minOrder;
+    final canInc = deal.quantity < maxQ;
+
+    Future<void> set(int q) async {
+      if (q < minOrder) return;
+      if (available != null && q > available!) return;
+      await ref.read(dealServiceProvider).updateQuantity(deal, q);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _StepBtn(
+              icon: Icons.remove,
+              enabled: canDec,
+              onTap: () => set(deal.quantity - 1),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Text(
+                '${deal.quantity}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            _StepBtn(
+              icon: Icons.add,
+              enabled: canInc,
+              onTap: () => set(deal.quantity + 1),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          available != null
+              ? 'Min $minOrder · $available available'
+              : 'Min $minOrder',
+          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+        ),
+      ],
+    );
+  }
+}
+
+class _StepBtn extends StatelessWidget {
+  const _StepBtn({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: enabled ? AppColors.surface : AppColors.bg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled ? AppColors.orange : AppColors.border,
+        ),
+      ),
+    );
   }
 }
 

@@ -44,11 +44,22 @@ class Profile {
   final bool driverApproved;
   final DateTime? createdAt;
 
-  /// Name shown on cards: business name when present, else personal name.
-  String get displayName =>
-      (businessName != null && businessName!.isNotEmpty)
-          ? businessName!
-          : name;
+  /// Name shown on cards/detail/storefront/chat. A warehouse is a business, so
+  /// it shows its business name; an individual is a person, so it shows their
+  /// name. Never renders blank/null — falls back to the person's name (or the
+  /// business name if the personal name is somehow empty).
+  String get displayName {
+    if (accountType == AccountType.warehouse &&
+        businessName != null &&
+        businessName!.trim().isNotEmpty) {
+      return businessName!;
+    }
+    if (name.trim().isNotEmpty) return name;
+    if (businessName != null && businessName!.trim().isNotEmpty) {
+      return businessName!;
+    }
+    return 'User';
+  }
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
         id: json['id'] as String,

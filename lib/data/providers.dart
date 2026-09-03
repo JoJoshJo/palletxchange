@@ -103,18 +103,25 @@ final storageRepositoryProvider = Provider<StorageRepository>((ref) {
       : NoopStorageRepository();
 });
 
-/// The signed-in user's profile (fixed demo trader until auth lands).
+/// The signed-in user's profile, refetched when the auth user changes.
 final currentProfileProvider = FutureProvider<Profile>((ref) {
+  if (SupabaseConfig.isConfigured) ref.watch(appAuthProvider);
   return ref.watch(profileRepositoryProvider).getCurrentProfile();
 });
 
-/// Synchronous access to the signed-in user's profile. When Supabase is
-/// configured this is the REAL cached profile (from AppAuth); otherwise the
-/// fake demo trader (ungated dev). A minimal fallback covers the brief window
-/// before the profile row is cached.
+/// Bridges the [AppAuth] ChangeNotifier into Riverpod so everything derived
+/// from the current user re-runs when the auth user changes (login / logout /
+/// account switch).
+final appAuthProvider = ChangeNotifierProvider<AppAuth>((ref) => appAuth);
+
+/// Synchronous access to the signed-in user's profile. Reactive to auth
+/// changes via [appAuthProvider]; never serves a cache whose id doesn't match
+/// the current session user. A minimal fallback covers the brief window before
+/// the profile row is fetched.
 final currentUserProvider = Provider<Profile>((ref) {
   if (!SupabaseConfig.isConfigured) return FakeSeed.currentUser;
-  final cached = appAuth.currentProfile;
+  final auth = ref.watch(appAuthProvider);
+  final cached = auth.currentProfile; // already id-guarded
   if (cached != null) return cached;
   final user = Supabase.instance.client.auth.currentUser;
   return Profile(

@@ -90,20 +90,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             const SizedBox(height: 16),
 
-            _Label(_needsBusinessName ? 'Business name' : 'Business name (optional)'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _businessName,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(hintText: 'Company / warehouse'),
-              validator: (v) {
-                if (_needsBusinessName && (v == null || v.trim().isEmpty)) {
-                  return 'Enter your business name';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
+            // Business name applies to warehouses only (an individual is a
+            // person, a driver is a service account).
+            if (_needsBusinessName) ...[
+              const _Label('Business name'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _businessName,
+                textCapitalization: TextCapitalization.words,
+                decoration:
+                    const InputDecoration(hintText: 'Company / warehouse'),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Enter your business name'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+            ],
 
             const _Label('Phone (optional)'),
             const SizedBox(height: 6),
@@ -211,9 +213,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       await Supabase.instance.client.from('profiles').update({
         'name': _name.text.trim(),
         'account_type': _accountType.value,
-        'business_name': _businessName.text.trim().isEmpty
-            ? null
-            : _businessName.text.trim(),
+        // Only warehouses carry a business name.
+        'business_name': (_needsBusinessName && _businessName.text.trim().isNotEmpty)
+            ? _businessName.text.trim()
+            : null,
         'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         'city': _city.text.trim(),
         'state': _state.text.trim(),

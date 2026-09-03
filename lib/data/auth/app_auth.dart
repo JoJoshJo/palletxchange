@@ -17,7 +17,15 @@ class AppAuth extends ChangeNotifier {
       if (data.event == AuthChangeEvent.passwordRecovery) {
         _passwordRecovery = true;
       }
+      final previousUserId = _session?.user.id;
       _session = data.session;
+      // On any account change, drop the stale cache immediately so no screen
+      // can render the previous user while the refetch is in flight.
+      if (data.session?.user.id != previousUserId ||
+          data.event == AuthChangeEvent.signedOut) {
+        _profile = null;
+        _profileComplete = false;
+      }
       await _refreshProfile();
       notifyListeners();
     });
@@ -39,8 +47,13 @@ class AppAuth extends ChangeNotifier {
   bool get loading => _loading;
 
   /// The signed-in user's full profile row (cached; refreshed on auth change
-  /// and after onboarding).
-  Profile? get currentProfile => _profile;
+  /// and after onboarding). Never returns a cache whose id doesn't match the
+  /// current session user — that guards against serving a prior account.
+  Profile? get currentProfile {
+    final uid = _session?.user.id;
+    if (_profile != null && _profile!.id == uid) return _profile;
+    return null;
+  }
 
   /// True while a recovery session is active (opened from a reset-password
   /// link) — the router routes to the "set new password" screen.
@@ -124,7 +137,12 @@ class AppAuth extends ChangeNotifier {
     return _client.auth.signInWithPassword(email: email, password: password);
   }
 
-  Future<void> signOut() => _client.auth.signOut();
+  Future<void> signOut() async {
+    // Clear cache eagerly; the signedOut event also clears + notifies.
+    _profile = null;
+    _profileComplete = false;
+    await _client.auth.signOut();
+  }
 
   /// Send a password-reset email; the link returns to the app via the same
   /// login-callback deep link.

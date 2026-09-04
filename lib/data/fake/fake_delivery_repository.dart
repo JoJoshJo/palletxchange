@@ -122,6 +122,15 @@ class FakeDeliveryRepository implements DeliveryRepository {
   }
 
   @override
+  Future<Delivery?> getDeliveryByDeal(String dealId) async {
+    await _latency();
+    for (final d in _deliveries) {
+      if (d.dealId == dealId) return d;
+    }
+    return null;
+  }
+
+  @override
   Future<Delivery> createDelivery(Delivery delivery) async {
     await _latency();
     _deliveries.add(delivery);

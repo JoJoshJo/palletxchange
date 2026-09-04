@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
+import 'tabs/admin_drivers_tab.dart';
 import 'tabs/admin_listings_tab.dart';
 import 'tabs/admin_overview_tab.dart';
 import 'tabs/admin_reports_tab.dart';
@@ -16,7 +17,7 @@ class AdminHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const BrandWordmark(),
@@ -34,6 +35,7 @@ class AdminHome extends StatelessWidget {
             indicatorColor: AppColors.orange,
             tabs: [
               Tab(text: 'Overview'),
+              Tab(text: 'Drivers'),
               Tab(text: 'Users'),
               Tab(text: 'Listings'),
               Tab(text: 'Reports'),
@@ -43,6 +45,7 @@ class AdminHome extends StatelessWidget {
         body: const TabBarView(
           children: [
             AdminOverviewTab(),
+            AdminDriversTab(),
             AdminUsersTab(),
             AdminListingsTab(),
             AdminReportsTab(),

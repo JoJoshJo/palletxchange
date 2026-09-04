@@ -19,6 +19,8 @@ class Profile {
     this.verifiedStatus = false,
     this.rating,
     this.driverApproved = false,
+    this.driverLicenseUrl,
+    this.driverInsuranceUrl,
     this.createdAt,
   });
 
@@ -42,7 +44,15 @@ class Profile {
 
   /// Driver vetting: approved to claim jobs (admin-granted).
   final bool driverApproved;
+
+  /// Storage paths (private driver-docs bucket) for submitted documents.
+  final String? driverLicenseUrl;
+  final String? driverInsuranceUrl;
   final DateTime? createdAt;
+
+  bool get hasDriverDocs =>
+      (driverLicenseUrl != null && driverLicenseUrl!.isNotEmpty) ||
+      (driverInsuranceUrl != null && driverInsuranceUrl!.isNotEmpty);
 
   /// Name shown on cards/detail/storefront/chat. A warehouse is a business, so
   /// it shows its business name; an individual is a person, so it shows their
@@ -79,6 +89,8 @@ class Profile {
         verifiedStatus: json['verified_status'] as bool? ?? false,
         rating: (json['rating'] as num?)?.toDouble(),
         driverApproved: json['driver_approved'] as bool? ?? false,
+        driverLicenseUrl: json['driver_license_url'] as String?,
+        driverInsuranceUrl: json['driver_insurance_url'] as String?,
         createdAt: json['created_at'] == null
             ? null
             : DateTime.parse(json['created_at'] as String),
@@ -100,6 +112,8 @@ class Profile {
         'longitude': longitude,
         'verified_status': verifiedStatus,
         'rating': rating,
+        'driver_license_url': driverLicenseUrl,
+        'driver_insurance_url': driverInsuranceUrl,
         'created_at': createdAt?.toIso8601String(),
       };
 
@@ -120,6 +134,8 @@ class Profile {
     bool? verifiedStatus,
     double? rating,
     bool? driverApproved,
+    String? driverLicenseUrl,
+    String? driverInsuranceUrl,
     DateTime? createdAt,
   }) =>
       Profile(
@@ -139,6 +155,8 @@ class Profile {
         verifiedStatus: verifiedStatus ?? this.verifiedStatus,
         rating: rating ?? this.rating,
         driverApproved: driverApproved ?? this.driverApproved,
+        driverLicenseUrl: driverLicenseUrl ?? this.driverLicenseUrl,
+        driverInsuranceUrl: driverInsuranceUrl ?? this.driverInsuranceUrl,
         createdAt: createdAt ?? this.createdAt,
       );
 }

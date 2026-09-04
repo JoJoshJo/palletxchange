@@ -79,6 +79,16 @@ class SupabaseDeliveryRepository implements DeliveryRepository {
   }
 
   @override
+  Future<Delivery?> getDeliveryByDeal(String dealId) async {
+    final row = await _c
+        .from('deliveries')
+        .select(_select)
+        .eq('deal_id', dealId)
+        .maybeSingle();
+    return row == null ? null : _fromRow(row);
+  }
+
+  @override
   Future<Delivery> createDelivery(Delivery delivery) async {
     final payload = {
       'deal_id': delivery.dealId,

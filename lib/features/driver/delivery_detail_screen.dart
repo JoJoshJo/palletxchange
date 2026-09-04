@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
+import '../../core/image_pick.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/providers.dart';
 import '../../models/delivery.dart';
 import '../../models/enums.dart';
+import '../common/proof_image.dart';
 
 class DeliveryDetailScreen extends ConsumerWidget {
   const DeliveryDetailScreen({super.key, required this.deliveryId});
@@ -110,16 +112,18 @@ class _Body extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              _ProofButton(
+              _ProofRow(
                 label: 'Pickup proof',
-                attached: delivery.proofOfPickup != null,
-                onTap: () => service.addProofOfPickup(delivery),
+                kind: 'pickup',
+                path: delivery.proofOfPickup,
+                delivery: delivery,
               ),
-              const SizedBox(height: 10),
-              _ProofButton(
+              const SizedBox(height: 12),
+              _ProofRow(
                 label: 'Delivery proof',
-                attached: delivery.proofOfDelivery != null,
-                onTap: () => service.addProofOfDelivery(delivery),
+                kind: 'delivery',
+                path: delivery.proofOfDelivery,
+                delivery: delivery,
               ),
             ],
           ),
@@ -302,27 +306,104 @@ class _StepRow extends StatelessWidget {
   }
 }
 
-class _ProofButton extends StatelessWidget {
-  const _ProofButton({
+/// Driver-facing proof row: a signed-URL thumbnail when present, plus an
+/// upload/replace action that stores to the private bucket.
+class _ProofRow extends ConsumerStatefulWidget {
+  const _ProofRow({
     required this.label,
-    required this.attached,
-    required this.onTap,
+    required this.kind,
+    required this.path,
+    required this.delivery,
   });
 
   final String label;
-  final bool attached;
-  final VoidCallback onTap;
+  final String kind; // 'pickup' | 'delivery'
+  final String? path;
+  final Delivery delivery;
+
+  @override
+  ConsumerState<_ProofRow> createState() => _ProofRowState();
+}
+
+class _ProofRowState extends ConsumerState<_ProofRow> {
+  bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: attached ? null : onTap,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(48),
-        foregroundColor: attached ? AppColors.green : AppColors.textPrimary,
-      ),
-      icon: Icon(attached ? Icons.check_circle : Icons.add_a_photo_outlined),
-      label: Text(attached ? '$label attached' : 'Add $label'),
+    final has = widget.path != null && widget.path!.isNotEmpty;
+    return Row(
+      children: [
+        if (has)
+          DeliveryProofImage(path: widget.path!)
+        else
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Icon(Icons.image_outlined, color: AppColors.textMuted),
+          ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                has ? 'Uploaded' : 'Not uploaded yet',
+                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+        _busy
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.2),
+              )
+            : TextButton(
+                onPressed: _upload,
+                child: Text(has ? 'Replace' : 'Add'),
+              ),
+      ],
     );
+  }
+
+  Future<void> _upload() async {
+    final picked = await pickImage(context);
+    if (picked == null) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(deliveryServiceProvider).uploadProof(
+            delivery: widget.delivery,
+            kind: widget.kind,
+            bytes: picked.bytes,
+            fileExtension: picked.fileExtension,
+            contentType: picked.contentType,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${widget.label} uploaded')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't upload — try again")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }

@@ -9,6 +9,9 @@ abstract interface class DeliveryRepository {
 
   Future<Delivery?> getDeliveryById(String id);
 
+  /// The delivery attached to a deal (for deal parties to view proof).
+  Future<Delivery?> getDeliveryByDeal(String dealId);
+
   /// Creates a job for a delivery deal (called when a delivery deal is
   /// accepted). Driver is unassigned until claimed.
   Future<Delivery> createDelivery(Delivery delivery);

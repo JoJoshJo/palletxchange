@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/delivery.dart';
 import '../../models/enums.dart';
@@ -33,25 +36,37 @@ class DeliveryService {
     _refresh(delivery.id);
   }
 
-  /// Stub proof upload — real camera/Storage upload arrives in Milestone 3.
-  Future<void> addProofOfPickup(Delivery delivery) async {
-    await ref.read(deliveryRepositoryProvider).updateDelivery(
-          delivery.copyWith(
-            proofOfPickup:
-                'https://example.com/proof/pickup_${delivery.id}.jpg',
-          ),
+  /// Uploads a proof photo to the private delivery-proof bucket, stores its
+  /// path on the delivery, and notifies the delivery requester.
+  /// [kind] is 'pickup' or 'delivery'.
+  Future<void> uploadProof({
+    required Delivery delivery,
+    required String kind,
+    required Uint8List bytes,
+    required String fileExtension,
+    required String contentType,
+  }) async {
+    final path = await ref.read(storageRepositoryProvider).uploadDeliveryProof(
+          bytes: bytes,
+          fileExtension: fileExtension,
+          contentType: contentType,
+          dealId: delivery.dealId,
+          kind: kind,
         );
-    _refresh(delivery.id);
-  }
-
-  Future<void> addProofOfDelivery(Delivery delivery) async {
     await ref.read(deliveryRepositoryProvider).updateDelivery(
-          delivery.copyWith(
-            proofOfDelivery:
-                'https://example.com/proof/delivery_${delivery.id}.jpg',
-          ),
+          kind == 'pickup'
+              ? delivery.copyWith(proofOfPickup: path)
+              : delivery.copyWith(proofOfDelivery: path),
         );
+    // Notify the requester (buyer/seller per delivery_paid_by) via RPC.
+    try {
+      await Supabase.instance.client.rpc('notify_delivery_proof', params: {
+        'p_deal': delivery.dealId,
+        'p_kind': kind,
+      });
+    } catch (_) {/* notification is best-effort */}
     _refresh(delivery.id);
+    ref.invalidate(deliveryForDealProvider(delivery.dealId));
   }
 
   void _refresh(String deliveryId) {

@@ -5,8 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../repositories/storage_repository.dart';
 
-/// Real [StorageRepository] over Supabase Storage. Files are written under
-/// `{uid}/{random}/{name}` so bucket RLS can gate writes to the owner.
+/// Real [StorageRepository] over Supabase Storage.
 class SupabaseStorageRepository implements StorageRepository {
   SupabaseClient get _c => Supabase.instance.client;
   final _rng = Random.secure();
@@ -17,42 +16,21 @@ class SupabaseStorageRepository implements StorageRepository {
     return uid;
   }
 
-  String _path(String ext) {
-    final folder = List.generate(16, (_) => _rng.nextInt(16).toRadixString(16))
-        .join();
-    final name = '${DateTime.now().microsecondsSinceEpoch}.$ext';
-    return '${_uid()}/$folder/$name';
-  }
+  String _fileName(String ext) =>
+      '${DateTime.now().microsecondsSinceEpoch}_'
+      '${_rng.nextInt(1 << 32).toRadixString(16)}.$ext';
 
-  Future<String> _uploadPublic({
-    required String bucket,
-    required Uint8List bytes,
-    required String fileExtension,
-    required String contentType,
-  }) async {
-    final path = _path(fileExtension);
+  Future<void> _upload(
+    String bucket,
+    String path,
+    Uint8List bytes,
+    String contentType,
+  ) async {
     await _c.storage.from(bucket).uploadBinary(
           path,
           bytes,
-          fileOptions: FileOptions(contentType: contentType, upsert: false),
+          fileOptions: FileOptions(contentType: contentType, upsert: true),
         );
-    return _c.storage.from(bucket).getPublicUrl(path);
-  }
-
-  Future<String> _uploadPrivate({
-    required String bucket,
-    required Uint8List bytes,
-    required String fileExtension,
-    required String contentType,
-  }) async {
-    final path = _path(fileExtension);
-    await _c.storage.from(bucket).uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(contentType: contentType, upsert: false),
-        );
-    // Private buckets: return the storage path; consumers create signed URLs.
-    return path;
   }
 
   @override
@@ -60,42 +38,50 @@ class SupabaseStorageRepository implements StorageRepository {
     required Uint8List bytes,
     required String fileExtension,
     required String contentType,
-  }) =>
-      _uploadPublic(
-        bucket: 'listing-photos',
-        bytes: bytes,
-        fileExtension: fileExtension,
-        contentType: contentType,
-      );
+  }) async {
+    final path = '${_uid()}/${_fileName(fileExtension)}';
+    await _upload(StorageBuckets.listingPhotos, path, bytes, contentType);
+    return _c.storage.from(StorageBuckets.listingPhotos).getPublicUrl(path);
+  }
 
   @override
   Future<String> uploadDriverDoc({
     required Uint8List bytes,
     required String fileExtension,
     required String contentType,
-  }) =>
-      _uploadPrivate(
-        bucket: 'driver-docs',
-        bytes: bytes,
-        fileExtension: fileExtension,
-        contentType: contentType,
-      );
+    required String kind,
+  }) async {
+    // {uid}/{kind}/{file} — RLS keys off foldername[1] = uid.
+    final path = '${_uid()}/$kind/${_fileName(fileExtension)}';
+    await _upload(StorageBuckets.driverDocs, path, bytes, contentType);
+    return path;
+  }
 
   @override
   Future<String> uploadDeliveryProof({
     required Uint8List bytes,
     required String fileExtension,
     required String contentType,
-  }) =>
-      _uploadPrivate(
-        bucket: 'delivery-proof',
-        bytes: bytes,
-        fileExtension: fileExtension,
-        contentType: contentType,
-      );
+    required String dealId,
+    required String kind,
+  }) async {
+    // {dealId}/{kind}/{file} — RLS keys off foldername[1] = deal id.
+    final path = '$dealId/$kind/${_fileName(fileExtension)}';
+    await _upload(StorageBuckets.deliveryProof, path, bytes, contentType);
+    return path;
+  }
+
+  @override
+  Future<String> signedUrl({
+    required String bucket,
+    required String path,
+    int expiresSeconds = 3600,
+  }) {
+    return _c.storage.from(bucket).createSignedUrl(path, expiresSeconds);
+  }
 }
 
-/// Fallback for ungated dev (no Supabase): uploads are unavailable.
+/// Ungated-dev fallback: storage unavailable.
 class NoopStorageRepository implements StorageRepository {
   @override
   Future<String> uploadListingPhoto({
@@ -110,6 +96,7 @@ class NoopStorageRepository implements StorageRepository {
     required Uint8List bytes,
     required String fileExtension,
     required String contentType,
+    required String kind,
   }) async =>
       throw UnsupportedError('Storage unavailable');
 
@@ -118,6 +105,16 @@ class NoopStorageRepository implements StorageRepository {
     required Uint8List bytes,
     required String fileExtension,
     required String contentType,
+    required String dealId,
+    required String kind,
+  }) async =>
+      throw UnsupportedError('Storage unavailable');
+
+  @override
+  Future<String> signedUrl({
+    required String bucket,
+    required String path,
+    int expiresSeconds = 3600,
   }) async =>
       throw UnsupportedError('Storage unavailable');
 }

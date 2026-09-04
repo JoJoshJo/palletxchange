@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
+import '../../core/image_pick.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
 import '../../core/widgets/trust_widgets.dart';
@@ -53,55 +54,158 @@ class DriverJobsScreen extends ConsumerWidget {
   }
 }
 
-class _PendingApproval extends StatelessWidget {
+class _PendingApproval extends ConsumerStatefulWidget {
   const _PendingApproval();
 
   @override
+  ConsumerState<_PendingApproval> createState() => _PendingApprovalState();
+}
+
+class _PendingApprovalState extends ConsumerState<_PendingApproval> {
+  bool _busy = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 84,
-              height: 84,
-              decoration: BoxDecoration(
-                color: AppColors.teal.withValues(alpha: 0.10),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.verified_user_outlined,
-                  size: 40, color: AppColors.teal),
+    final me = ref.watch(currentUserProvider);
+    final hasLicense =
+        me.driverLicenseUrl != null && me.driverLicenseUrl!.isNotEmpty;
+    final hasInsurance =
+        me.driverInsuranceUrl != null && me.driverInsuranceUrl!.isNotEmpty;
+    final submitted = hasLicense && hasInsurance;
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const SizedBox(height: 12),
+        Center(
+          child: Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              color: AppColors.teal.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Approval pending',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
+            child: const Icon(Icons.verified_user_outlined,
+                size: 40, color: AppColors.teal),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Center(
+          child: Text(
+            'Get approved to drive',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Upload your license and insurance. An admin reviews them before you '
+          'can claim jobs.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.textMuted, height: 1.4),
+        ),
+        const SizedBox(height: 24),
+        _DocRow(
+          label: 'Driver license',
+          done: hasLicense,
+          onTap: _busy ? null : () => _upload('license'),
+        ),
+        const SizedBox(height: 12),
+        _DocRow(
+          label: 'Insurance',
+          done: hasInsurance,
+          onTap: _busy ? null : () => _upload('insurance'),
+        ),
+        const SizedBox(height: 20),
+        if (submitted)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.green.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.hourglass_top, size: 18, color: AppColors.green),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Submitted — pending review.',
+                      style: TextStyle(color: AppColors.textPrimary)),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _upload(String kind) async {
+    final picked = await pickImage(context);
+    if (picked == null) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(driverServiceProvider).submitDoc(
+            kind: kind,
+            bytes: picked.bytes,
+            fileExtension: picked.fileExtension,
+            contentType: picked.contentType,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kind uploaded')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't upload — try again")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
+class _DocRow extends StatelessWidget {
+  const _DocRow({required this.label, required this.done, required this.onTap});
+
+  final String label;
+  final bool done;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(done ? Icons.check_circle : Icons.description_outlined,
+              color: done ? AppColors.green : AppColors.textMuted),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Upload your license and insurance to get approved. '
-              "You'll be able to claim jobs once an admin approves you.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Document upload — coming with Storage'),
-                ),
-              ),
-              icon: const Icon(Icons.upload_file_outlined),
-              label: const Text('Upload license & insurance'),
-            ),
-          ],
-        ),
+          ),
+          TextButton(
+            onPressed: onTap,
+            child: Text(done ? 'Replace' : 'Upload'),
+          ),
+        ],
       ),
     );
   }

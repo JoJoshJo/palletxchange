@@ -38,6 +38,7 @@ import 'repositories/storage_repository.dart';
 import 'services/admin_service.dart';
 import 'services/deal_service.dart';
 import 'services/delivery_service.dart';
+import 'services/driver_service.dart';
 import 'services/matching_service.dart';
 import 'services/message_service.dart';
 import 'services/request_service.dart';
@@ -401,6 +402,34 @@ final myDeliveriesProvider = FutureProvider<List<Delivery>>((ref) {
 final deliveryByIdProvider =
     FutureProvider.family<Delivery?, String>((ref, id) {
   return ref.watch(deliveryRepositoryProvider).getDeliveryById(id);
+});
+
+/// The delivery attached to a deal (for deal parties to view proof).
+final deliveryForDealProvider =
+    FutureProvider.family<Delivery?, String>((ref, dealId) {
+  return ref.watch(deliveryRepositoryProvider).getDeliveryByDeal(dealId);
+});
+
+final driverServiceProvider =
+    Provider<DriverService>((ref) => DriverService(ref));
+
+/// Driver profiles awaiting approval that have submitted at least one doc.
+final pendingDriversProvider = FutureProvider<List<Profile>>((ref) async {
+  final all = await ref.watch(allProfilesProvider.future);
+  return all
+      .where((p) =>
+          p.accountType == AccountType.driver &&
+          !p.driverApproved &&
+          p.hasDriverDocs)
+      .toList();
+});
+
+/// A signed URL for a private storage object (driver docs / delivery proof).
+final signedUrlProvider =
+    FutureProvider.family<String, ({String bucket, String path})>((ref, args) {
+  return ref
+      .read(storageRepositoryProvider)
+      .signedUrl(bucket: args.bucket, path: args.path);
 });
 
 /// Driver earnings = sum of completed-delivery fees (computed, not hardcoded).

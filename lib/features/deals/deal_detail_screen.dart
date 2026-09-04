@@ -10,6 +10,7 @@ import '../../data/providers.dart';
 import '../../models/deal.dart';
 import '../../models/enums.dart';
 import '../../models/review.dart';
+import '../common/proof_image.dart';
 import 'widgets/deal_status_chip.dart';
 import 'widgets/review_sheet.dart';
 
@@ -145,6 +146,11 @@ class _DealBody extends ConsumerWidget {
                       ? 'Update delivery quote'
                       : 'Enter delivery quote'),
                 ),
+              ],
+
+              if (isDelivery) ...[
+                const SizedBox(height: 16),
+                _DeliveryProofSection(dealId: deal.id),
               ],
 
               if (deal.dealStatus == DealStatus.completed) ...[
@@ -356,6 +362,63 @@ class _StepBtn extends StatelessWidget {
           color: enabled ? AppColors.orange : AppColors.border,
         ),
       ),
+    );
+  }
+}
+
+/// Delivery proof photos (signed URLs), visible to the deal's parties.
+class _DeliveryProofSection extends ConsumerWidget {
+  const _DeliveryProofSection({required this.dealId});
+
+  final String dealId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(deliveryForDealProvider(dealId));
+    final delivery = async.valueOrNull;
+    if (delivery == null) return const SizedBox.shrink();
+    final pickup = delivery.proofOfPickup;
+    final drop = delivery.proofOfDelivery;
+    if ((pickup == null || pickup.isEmpty) && (drop == null || drop.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Delivery proof',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (pickup != null && pickup.isNotEmpty) ...[
+              Column(
+                children: [
+                  DeliveryProofImage(path: pickup, size: 80),
+                  const SizedBox(height: 4),
+                  const Text('Pickup',
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                ],
+              ),
+              const SizedBox(width: 12),
+            ],
+            if (drop != null && drop.isNotEmpty)
+              Column(
+                children: [
+                  DeliveryProofImage(path: drop, size: 80),
+                  const SizedBox(height: 4),
+                  const Text('Delivery',
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                ],
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

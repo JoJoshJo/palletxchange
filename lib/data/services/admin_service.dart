@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/enums.dart';
 import '../../models/listing.dart';
@@ -36,5 +37,21 @@ class AdminService {
         .read(reportRepositoryProvider)
         .updateReport(report.copyWith(status: ReportStatus.resolved));
     ref.invalidate(allReportsProvider);
+  }
+
+  /// Approve or reject a driver (sets driver_approved + notifies them) via the
+  /// admin-only SECURITY DEFINER RPC.
+  Future<void> setDriverApproved(
+    String driverId, {
+    required bool approved,
+    String? reason,
+  }) async {
+    await Supabase.instance.client.rpc('admin_set_driver_approved', params: {
+      'p_driver': driverId,
+      'p_approved': approved,
+      'p_reason': reason,
+    });
+    ref.invalidate(allProfilesProvider);
+    ref.invalidate(profileByIdProvider(driverId));
   }
 }

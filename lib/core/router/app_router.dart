@@ -5,6 +5,7 @@ import '../../data/auth/app_auth.dart';
 import '../../models/enums.dart';
 import '../../features/admin/admin_home.dart';
 import '../../features/auth/auth_screen.dart';
+import '../../features/auth/confirm_email_screen.dart';
 import '../../features/auth/link_callback_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/reset_request_screen.dart';
@@ -72,9 +73,12 @@ String? _guard(AppAuth auth, GoRouterState state) {
 
   final onAuth = loc == '/auth';
   final onReset = loc == '/reset-request';
+  final onConfirm = loc == '/confirm-email';
   final onOnboarding = loc == '/onboarding';
 
-  if (!auth.isLoggedIn) return (onAuth || onReset) ? null : '/auth';
+  if (!auth.isLoggedIn) {
+    return (onAuth || onReset || onConfirm) ? null : '/auth';
+  }
   if (!auth.profileComplete) return onOnboarding ? null : '/onboarding';
 
   // Role-based home: drivers get the driver shell, traders the marketplace.
@@ -117,6 +121,12 @@ final List<RouteBase> _routes = [
     GoRoute(
       path: '/reset-request',
       builder: (_, _) => const ResetRequestScreen(),
+    ),
+    GoRoute(
+      path: '/confirm-email',
+      builder: (_, state) => ConfirmEmailScreen(
+        email: state.uri.queryParameters['email'] ?? '',
+      ),
     ),
     GoRoute(
       path: '/set-password',

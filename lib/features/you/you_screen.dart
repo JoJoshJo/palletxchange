@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config/supabase_config.dart';
+import '../../core/format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
 import '../../data/auth/app_auth.dart';
 import '../../data/providers.dart';
+import '../../models/enums.dart';
+import '../deals/deals_screen.dart';
 
 class YouScreen extends ConsumerWidget {
   const YouScreen({super.key});
@@ -66,6 +69,8 @@ class YouScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          const _TraderDashboard(),
           const SizedBox(height: 24),
           if (me.isAdmin)
             ListTile(
@@ -149,6 +154,193 @@ class _MenuItem extends StatelessWidget {
           const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
       onTap: () => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$label — coming soon')),
+      ),
+    );
+  }
+}
+
+/// The trader's own business summary (sell + buy sides), from real data.
+class _TraderDashboard extends ConsumerWidget {
+  const _TraderDashboard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserProvider);
+    final dealsAsync = ref.watch(myDealsProvider);
+    final listingsAsync = ref.watch(sellerActiveListingsProvider(me.id));
+
+    final deals = dealsAsync.valueOrNull ?? const [];
+    final activeListings = listingsAsync.valueOrNull?.length ?? 0;
+
+    final sell = deals.where((d) => d.sellerId == me.id);
+    final buy = deals.where((d) => d.buyerId == me.id);
+    final incoming =
+        sell.where((d) => d.dealStatus == DealStatus.pending).length;
+    final completedSales =
+        sell.where((d) => d.dealStatus == DealStatus.completed).toList();
+    final revenue = completedSales.fold<double>(
+        0, (s, d) => s + d.totalPrice + d.deliveryFee);
+    final activeBuys = buy
+        .where((d) =>
+            d.dealStatus == DealStatus.pending ||
+            d.dealStatus == DealStatus.accepted)
+        .length;
+    final completedBuys =
+        buy.where((d) => d.dealStatus == DealStatus.completed).toList();
+    final spent =
+        completedBuys.fold<double>(0, (s, d) => s + d.totalPrice + d.deliveryFee);
+
+    void openDeals(int tab) {
+      ref.read(dealsTabProvider.notifier).state = tab;
+      context.go('/deals');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _DashHeader('Selling'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _StatTile(
+              value: '$activeListings',
+              label: 'Active listings',
+              icon: Icons.inventory_2_outlined,
+              color: AppColors.orange,
+              onTap: () => context.push('/profile/${me.id}'),
+            ),
+            const SizedBox(width: 10),
+            _StatTile(
+              value: '$incoming',
+              label: 'Incoming deals',
+              icon: Icons.call_received,
+              color: const Color(0xFF9A6700),
+              onTap: () => openDeals(1),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _StatTile(
+              value: '${completedSales.length}',
+              label: 'Completed sales',
+              icon: Icons.check_circle_outline,
+              color: AppColors.green,
+              onTap: () => openDeals(1),
+            ),
+            const SizedBox(width: 10),
+            _StatTile(
+              value: moneyWhole(revenue),
+              label: 'Revenue',
+              icon: Icons.payments_outlined,
+              color: AppColors.teal,
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const _DashHeader('Buying'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _StatTile(
+              value: '$activeBuys',
+              label: 'Active deals',
+              icon: Icons.handshake_outlined,
+              color: AppColors.orange,
+              onTap: () => openDeals(0),
+            ),
+            const SizedBox(width: 10),
+            _StatTile(
+              value: '${completedBuys.length}',
+              label: 'Purchases',
+              icon: Icons.shopping_bag_outlined,
+              color: AppColors.green,
+              onTap: () => openDeals(0),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _StatTile(
+              value: moneyWhole(spent),
+              label: 'Total spent',
+              icon: Icons.account_balance_wallet_outlined,
+              color: AppColors.teal,
+            ),
+            const SizedBox(width: 10),
+            const Spacer(),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DashHeader extends StatelessWidget {
+  const _DashHeader(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      );
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onTap,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

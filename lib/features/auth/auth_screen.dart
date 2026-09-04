@@ -221,22 +221,34 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       if (_isSignUp) {
         final res = await appAuth.signUp(email: email, password: password);
-        if (res.session == null && mounted) {
-          setState(() {
-            _info = 'Check your email to confirm your account, then log in.';
-            _isSignUp = false;
-          });
+        if (!mounted) return;
+        if (res.session == null) {
+          // Email confirmation required — dedicated confirm screen.
+          context.push('/confirm-email?email=${Uri.encodeComponent(email)}');
         }
+        // If a session came back (confirm off), the router routes onward.
       } else {
         await appAuth.signIn(email: email, password: password);
       }
     } on AuthException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      // Keep the typed text; show a clear inline message.
+      if (mounted) setState(() => _error = _friendlyAuthError(e.message));
     } catch (_) {
       if (mounted) setState(() => _error = 'Something went wrong. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  String _friendlyAuthError(String message) {
+    final m = message.toLowerCase();
+    if (m.contains('invalid login credentials')) {
+      return 'Incorrect email or password.';
+    }
+    if (m.contains('email not confirmed')) {
+      return 'Please confirm your email first — check your inbox.';
+    }
+    return message;
   }
 
   Future<void> _resend() async {

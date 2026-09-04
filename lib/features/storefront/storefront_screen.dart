@@ -7,6 +7,7 @@ import '../../data/providers.dart';
 import '../../models/enums.dart';
 import '../../models/listing.dart';
 import '../../models/profile.dart';
+import '../common/report_user.dart';
 import '../marketplace/widgets/listing_card.dart';
 
 class StorefrontScreen extends ConsumerWidget {
@@ -21,7 +22,27 @@ class StorefrontScreen extends ConsumerWidget {
     final isOwnStorefront = ref.watch(currentUserProvider).id == profileId;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Storefront')),
+      appBar: AppBar(
+        title: const Text('Storefront'),
+        actions: [
+          if (!isOwnStorefront)
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                if (v == 'report') {
+                  showReportUserSheet(
+                    context,
+                    ref,
+                    reportedUserId: profileId,
+                    subjectLabel: profileAsync.valueOrNull?.displayName,
+                  );
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'report', child: Text('Report user')),
+              ],
+            ),
+        ],
+      ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => const Center(child: Text("Couldn't load storefront")),

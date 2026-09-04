@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../data/providers.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
+import '../common/report_user.dart';
 
 class ThreadScreen extends ConsumerStatefulWidget {
   const ThreadScreen({super.key, required this.conversationId});
@@ -47,6 +48,24 @@ class _ThreadScreenState extends ConsumerState<ThreadScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(convo?.otherParty.displayName ?? 'Chat'),
+        actions: [
+          if (convo != null)
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                if (v == 'report') {
+                  showReportUserSheet(
+                    context,
+                    ref,
+                    reportedUserId: convo.otherParty.id,
+                    subjectLabel: convo.otherParty.displayName,
+                  );
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'report', child: Text('Report user')),
+              ],
+            ),
+        ],
       ),
       body: Column(
         children: [

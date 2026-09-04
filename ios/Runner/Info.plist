@@ -66,6 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Location for "pallets near me". -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>PalletXchange uses your location to show pallets near you.</string>
 	<!-- Photo upload for listings. -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>PalletXchange needs access to your photos so you can add pictures to your listings.</string>

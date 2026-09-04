@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
+import '../../data/location_provider.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/listing_repository.dart';
 import '../../models/enums.dart';
 import 'widgets/listing_card.dart';
+import 'widgets/location_picker_sheet.dart';
 
 class MarketplaceScreen extends ConsumerWidget {
   const MarketplaceScreen({super.key});
@@ -63,39 +65,81 @@ class MarketplaceScreen extends ConsumerWidget {
   }
 }
 
-class _LocationHeader extends StatelessWidget {
+class _LocationHeader extends ConsumerWidget {
   const _LocationHeader();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = ref.watch(locationProvider);
     return Container(
       width: double.infinity,
       color: AppColors.bg,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Row(
         children: [
-          const Icon(Icons.place, size: 18, color: AppColors.orange),
-          const SizedBox(width: 6),
-          const Text(
-            'Atlanta, GA',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+          Flexible(
+            child: InkWell(
+              onTap: () => showLocationPicker(context, ref),
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.place, size: 18, color: AppColors.orange),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      loc.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.keyboard_arrow_down,
+                      size: 20, color: AppColors.textMuted),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 4),
-          const Icon(Icons.keyboard_arrow_down,
-              size: 20, color: AppColors.textMuted),
           const Spacer(),
+          _RadiusSelector(current: loc.radiusMiles),
+        ],
+      ),
+    );
+  }
+}
+
+class _RadiusSelector extends ConsumerWidget {
+  const _RadiusSelector({required this.current});
+
+  final int current;
+
+  static const _options = [10, 25, 50, 100];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<int>(
+      initialValue: current,
+      onSelected: (v) => ref.read(locationProvider.notifier).setRadius(v),
+      itemBuilder: (_) => _options
+          .map((m) => PopupMenuItem(value: m, child: Text('Within $m mi')))
+          .toList(),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Text(
-            'Within 50 mi',
-            style: TextStyle(
+            'Within $current mi',
+            style: const TextStyle(
               fontSize: 13,
               color: AppColors.textMuted,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          const Icon(Icons.keyboard_arrow_down,
+              size: 18, color: AppColors.textMuted),
         ],
       ),
     );

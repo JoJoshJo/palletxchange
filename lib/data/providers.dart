@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/supabase_config.dart';
+import '../core/location/geo.dart';
+import 'location_provider.dart';
 import '../models/conversation.dart';
 import '../models/deal.dart';
 import '../models/delivery.dart';
@@ -143,12 +145,30 @@ final profileByIdProvider =
 final listingFilterProvider =
     StateProvider<ListingFilter>((ref) => const ListingFilter());
 
-/// The marketplace list, reactive to the current filter and to newly created
-/// listings (the repository instance is shared, so createListing shows up on
-/// the next load).
-final marketplaceListingsProvider = FutureProvider<List<Listing>>((ref) {
+/// The marketplace list: filtered listings, with distance computed from the
+/// active search location and the radius applied client-side. Listings with
+/// unknown coordinates are always shown (distance unknown, never hidden).
+final marketplaceListingsProvider = FutureProvider<List<Listing>>((ref) async {
   final filter = ref.watch(listingFilterProvider);
-  return ref.watch(listingRepositoryProvider).getListings(filter: filter);
+  final loc = ref.watch(locationProvider);
+  final listings =
+      await ref.watch(listingRepositoryProvider).getListings(filter: filter);
+
+  if (!loc.hasCoords) return listings; // no location → no distance/radius
+
+  final out = <Listing>[];
+  for (final l in listings) {
+    if (l.latitude != null && l.longitude != null) {
+      final d = haversineMiles(loc.lat!, loc.lng!, l.latitude!, l.longitude!);
+      if (d > loc.radiusMiles) continue; // outside radius
+      out.add(l.copyWith(distanceMiles: d));
+    } else {
+      out.add(l); // unknown coords — keep, no distance
+    }
+  }
+  out.sort((a, b) =>
+      (a.distanceMiles ?? 1e9).compareTo(b.distanceMiles ?? 1e9));
+  return out;
 });
 
 /// A single listing by id (for the detail screen).

@@ -7,6 +7,7 @@ import '../../data/providers.dart';
 import '../../models/enums.dart';
 import '../../models/listing.dart';
 import '../../models/profile.dart';
+import '../common/block_user.dart';
 import '../common/report_user.dart';
 import '../marketplace/widgets/listing_card.dart';
 
@@ -20,6 +21,8 @@ class StorefrontScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileByIdProvider(profileId));
     final listingsAsync = ref.watch(sellerActiveListingsProvider(profileId));
     final isOwnStorefront = ref.watch(currentUserProvider).id == profileId;
+    final isBlocked =
+        ref.watch(blockedIdsProvider).valueOrNull?.contains(profileId) ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -28,17 +31,24 @@ class StorefrontScreen extends ConsumerWidget {
           if (!isOwnStorefront)
             PopupMenuButton<String>(
               onSelected: (v) {
-                if (v == 'report') {
-                  showReportUserSheet(
-                    context,
-                    ref,
-                    reportedUserId: profileId,
-                    subjectLabel: profileAsync.valueOrNull?.displayName,
-                  );
+                final name = profileAsync.valueOrNull?.displayName;
+                switch (v) {
+                  case 'report':
+                    showReportUserSheet(context, ref,
+                        reportedUserId: profileId, subjectLabel: name);
+                  case 'block':
+                    confirmBlockUser(context, ref,
+                        userId: profileId, name: name);
+                  case 'unblock':
+                    unblockUser(context, ref, userId: profileId, name: name);
                 }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'report', child: Text('Report user')),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'report', child: Text('Report user')),
+                if (isBlocked)
+                  const PopupMenuItem(value: 'unblock', child: Text('Unblock user'))
+                else
+                  const PopupMenuItem(value: 'block', child: Text('Block user')),
               ],
             ),
         ],
@@ -49,6 +59,17 @@ class StorefrontScreen extends ConsumerWidget {
         data: (profile) {
           if (profile == null) {
             return const Center(child: Text('Seller not found'));
+          }
+          if (isBlocked) {
+            return ListView(
+              children: [
+                _Header(profile: profile),
+                BlockedNotice(
+                  onUnblock: () => unblockUser(context, ref,
+                      userId: profileId, name: profile.displayName),
+                ),
+              ],
+            );
           }
           return CustomScrollView(
             slivers: [
@@ -92,8 +113,9 @@ class StorefrontScreen extends ConsumerWidget {
           );
         },
       ),
-      // No "Special Request to yourself" on your own storefront.
-      bottomNavigationBar: (profileAsync.valueOrNull == null || isOwnStorefront)
+      // No Special Request on your own storefront or a blocked user's.
+      bottomNavigationBar:
+          (profileAsync.valueOrNull == null || isOwnStorefront || isBlocked)
           ? null
           : SafeArea(
               minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),

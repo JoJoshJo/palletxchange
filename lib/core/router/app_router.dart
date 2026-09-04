@@ -21,6 +21,7 @@ import '../../features/deals/deals_screen.dart';
 import '../../features/driver/driver_home.dart';
 import '../../features/listing_detail/listing_detail_screen.dart';
 import '../../features/marketplace/marketplace_screen.dart';
+import '../../features/settings/blocked_users_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/special_request/matches_screen.dart';
 import '../../features/special_request/special_request_screen.dart';
@@ -220,6 +221,11 @@ final List<RouteBase> _routes = [
       parentNavigatorKey: _rootKey,
       builder: (_, state) =>
           EditListingScreen(listingId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/blocked',
+      parentNavigatorKey: _rootKey,
+      builder: (_, _) => const BlockedUsersScreen(),
     ),
     // Storefront profile.
     GoRoute(

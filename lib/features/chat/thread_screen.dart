@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../data/providers.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
+import '../common/block_user.dart';
 import '../common/report_user.dart';
 
 class ThreadScreen extends ConsumerStatefulWidget {
@@ -52,17 +53,20 @@ class _ThreadScreenState extends ConsumerState<ThreadScreen> {
           if (convo != null)
             PopupMenuButton<String>(
               onSelected: (v) {
-                if (v == 'report') {
-                  showReportUserSheet(
-                    context,
-                    ref,
-                    reportedUserId: convo.otherParty.id,
-                    subjectLabel: convo.otherParty.displayName,
-                  );
+                switch (v) {
+                  case 'report':
+                    showReportUserSheet(context, ref,
+                        reportedUserId: convo.otherParty.id,
+                        subjectLabel: convo.otherParty.displayName);
+                  case 'block':
+                    confirmBlockUser(context, ref,
+                        userId: convo.otherParty.id,
+                        name: convo.otherParty.displayName);
                 }
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'report', child: Text('Report user')),
+                PopupMenuItem(value: 'block', child: Text('Block user')),
               ],
             ),
         ],

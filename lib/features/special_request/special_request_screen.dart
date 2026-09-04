@@ -177,6 +177,19 @@ class _SpecialRequestScreenState extends ConsumerState<SpecialRequestScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Can't send a targeted request to a user you've blocked.
+    if (widget.sellerId != null) {
+      final blocked =
+          ref.read(blockedIdsProvider).valueOrNull ?? const <String>{};
+      if (blocked.contains(widget.sellerId)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("You've blocked this user. Unblock to contact them.")),
+        );
+        return;
+      }
+    }
     setState(() => _saving = true);
 
     final me = ref.read(currentUserProvider);

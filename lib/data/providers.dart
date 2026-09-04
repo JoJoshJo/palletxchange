@@ -13,6 +13,7 @@ import '../models/message.dart';
 import '../models/profile.dart';
 import '../models/report.dart';
 import '../models/request.dart';
+import 'fake/fake_block_repository.dart';
 import 'fake/fake_deal_repository.dart';
 import 'fake/fake_delivery_repository.dart';
 import 'fake/fake_listing_repository.dart';
@@ -22,6 +23,7 @@ import 'fake/fake_report_repository.dart';
 import 'fake/fake_request_repository.dart';
 import 'fake/fake_review_repository.dart';
 import 'fake/fake_seed.dart';
+import 'repositories/block_repository.dart';
 import 'repositories/deal_repository.dart';
 import 'repositories/delivery_repository.dart';
 import 'repositories/listing_repository.dart';
@@ -37,6 +39,7 @@ import 'services/delivery_service.dart';
 import 'services/matching_service.dart';
 import 'services/message_service.dart';
 import 'services/request_service.dart';
+import 'supabase/supabase_block_repository.dart';
 import 'supabase/supabase_deal_repository.dart';
 import 'supabase/supabase_delivery_repository.dart';
 import 'supabase/supabase_listing_repository.dart';
@@ -105,6 +108,42 @@ final storageRepositoryProvider = Provider<StorageRepository>((ref) {
       : NoopStorageRepository();
 });
 
+final blockRepositoryProvider = Provider<BlockRepository>((ref) {
+  return SupabaseConfig.isConfigured
+      ? SupabaseBlockRepository()
+      : FakeBlockRepository();
+});
+
+/// Ids the current user has blocked (drives hiding + contact guards).
+final blockedIdsProvider = FutureProvider<Set<String>>((ref) async {
+  if (SupabaseConfig.isConfigured) ref.watch(appAuthProvider);
+  final ids = await ref.watch(blockRepositoryProvider).getMyBlockedIds();
+  return ids.toSet();
+});
+
+/// Block / unblock actions that refresh the affected views.
+final blockServiceProvider = Provider<BlockService>((ref) => BlockService(ref));
+
+class BlockService {
+  BlockService(this.ref);
+  final Ref ref;
+
+  Future<void> block(String userId) async {
+    await ref.read(blockRepositoryProvider).block(userId);
+    _refresh();
+  }
+
+  Future<void> unblock(String userId) async {
+    await ref.read(blockRepositoryProvider).unblock(userId);
+    _refresh();
+  }
+
+  void _refresh() {
+    ref.invalidate(blockedIdsProvider);
+    ref.invalidate(marketplaceListingsProvider);
+  }
+}
+
 /// The signed-in user's profile, refetched when the auth user changes.
 final currentProfileProvider = FutureProvider<Profile>((ref) {
   if (SupabaseConfig.isConfigured) ref.watch(appAuthProvider);
@@ -151,8 +190,14 @@ final listingFilterProvider =
 final marketplaceListingsProvider = FutureProvider<List<Listing>>((ref) async {
   final filter = ref.watch(listingFilterProvider);
   final loc = ref.watch(locationProvider);
-  final listings =
+  final blocked = ref.watch(blockedIdsProvider).valueOrNull ?? const <String>{};
+  var listings =
       await ref.watch(listingRepositoryProvider).getListings(filter: filter);
+
+  // Hide listings from users I've blocked.
+  if (blocked.isNotEmpty) {
+    listings = listings.where((l) => !blocked.contains(l.sellerId)).toList();
+  }
 
   if (!loc.hasCoords) return listings; // no location → no distance/radius
 

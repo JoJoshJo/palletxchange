@@ -103,6 +103,20 @@ class YouScreen extends ConsumerWidget {
             onTap: () => context.push('/profile/${me.id}'),
           ),
           _MenuItem(icon: Icons.settings_outlined, label: 'Settings'),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.block, color: AppColors.textMuted),
+            title: const Text(
+              'Blocked users',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right,
+                size: 20, color: AppColors.textMuted),
+            onTap: () => context.push('/blocked'),
+          ),
           _MenuItem(icon: Icons.help_outline, label: 'Help & support'),
           _MenuItem(
             icon: Icons.delete_outline,

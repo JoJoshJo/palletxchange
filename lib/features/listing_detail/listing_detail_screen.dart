@@ -585,6 +585,14 @@ class _StickyActionsState extends ConsumerState<_StickyActions> {
   }
 
   Future<void> _requestDeal() async {
+    final blocked =
+        ref.read(blockedIdsProvider).valueOrNull ?? const <String>{};
+    if (blocked.contains(widget.listing.sellerId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You've blocked this seller. Unblock to deal.")),
+      );
+      return;
+    }
     setState(() => _busy = true);
     try {
       final dealId =

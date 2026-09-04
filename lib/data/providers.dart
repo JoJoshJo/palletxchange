@@ -235,14 +235,38 @@ final requestByIdProvider =
   return ref.watch(requestRepositoryProvider).getRequestById(id);
 });
 
-/// Scored matches for a request (BRAIN §7). Targeted requests are restricted to
-/// the target seller's listings first; broadcast scores the whole market.
+/// Scored matches for a request (BRAIN §7). Prefers the server-side RPC
+/// (`match_listings_for_request`); falls back to client-side scoring if the RPC
+/// is unavailable or errors.
 final matchesForRequestProvider =
     FutureProvider.family<List<ScoredListing>, String>((ref, requestId) async {
   final request =
       await ref.watch(requestRepositoryProvider).getRequestById(requestId);
   if (request == null) return const [];
   final repo = ref.watch(listingRepositoryProvider);
+
+  if (SupabaseConfig.isConfigured) {
+    try {
+      final rows = await Supabase.instance.client
+          .rpc('match_listings_for_request', params: {'p_request_id': requestId});
+      final scores = <String, int>{
+        for (final r in (rows as List))
+          r['listing_id'] as String: (r['score'] as num).toInt(),
+      };
+      if (scores.isEmpty) return const [];
+      final listings = await repo.getListingsByIds(scores.keys.toList());
+      final byId = {for (final l in listings) l.id: l};
+      // Preserve the RPC's score-desc order.
+      final ordered = scores.keys
+          .where(byId.containsKey)
+          .map((id) => ScoredListing(listing: byId[id]!, score: scores[id]!))
+          .toList();
+      return ordered;
+    } catch (_) {
+      // fall through to client-side scoring
+    }
+  }
+
   final listings = request.targetSellerId != null
       ? await repo.getListingsBySeller(request.targetSellerId!)
       : await repo.getListings();

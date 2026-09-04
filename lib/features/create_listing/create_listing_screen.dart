@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -416,10 +417,35 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     }
 
     final me = ref.read(currentProfileProvider).value;
+
+    // Geocode the address → coords so the listing shows distance + participates
+    // in radius filtering. Fall back to the seller's profile coords, then the
+    // listing's existing coords, then null.
+    double? lat;
+    double? lng;
+    final addr = [
+      _address.text.trim(),
+      _city.text.trim(),
+      _state.text.trim(),
+    ].where((s) => s.isNotEmpty).join(', ');
+    try {
+      if (addr.isNotEmpty) {
+        final results = await Geocoding().locationFromAddress(addr);
+        if (results.isNotEmpty) {
+          lat = results.first.latitude;
+          lng = results.first.longitude;
+        }
+      }
+    } catch (_) {/* geocoding optional */}
+    lat ??= me?.latitude ?? widget.initial?.latitude;
+    lng ??= me?.longitude ?? widget.initial?.longitude;
+
     final listing = Listing(
       id: widget.initial?.id ?? 'pending',
       sellerId: widget.initial?.sellerId ?? me?.id ?? 'me',
       photos: photoUrls,
+      latitude: lat,
+      longitude: lng,
       title: _title.text.trim(),
       palletType: _type,
       palletSize: _size,

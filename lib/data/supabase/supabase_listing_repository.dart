@@ -78,6 +78,14 @@ class SupabaseListingRepository implements ListingRepository {
   }
 
   @override
+  Future<List<Listing>> getListingsByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final rows =
+        await _c.from('listings').select(_select).inFilter('id', ids);
+    return (rows as List).map((r) => _fromRow(r)).toList();
+  }
+
+  @override
   Future<List<Listing>> getListingsBySeller(String sellerId) async {
     final rows = await _c
         .from('listings')

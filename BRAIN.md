@@ -292,8 +292,8 @@ Record anything deferred in the list below, with a reason.
 ### Deferred (with reason) — keep current
 - **Email-confirmation deep link into the app** — deferred: UX polish; bundle it with push-notification deep links (`/listing/:id`, `/deal/:id`, etc.) in the notifications milestone. Today confirmation (when on) is handled via the email link + manual log in.
 - **Authenticated cross-user RLS test** — deferred: pending the first confirmed users. Anon-level RLS is verified (anon cannot read deals/messages or write listings); the user-vs-user check (user A cannot read user B's deals) runs once two real accounts exist.
-- **Matching as a server-side RPC/Edge Function** (BRAIN §7 scoring) — deferred: currently computed client-side on fake data; moves server-side when the marketplace swaps to Supabase reads.
-- **Unavailable → 24h auto-archive job** (pg_cron / Edge Function) — deferred: not built yet; belongs with the listings swap.
+- **Matching as a server-side RPC** (BRAIN §7 scoring) — DONE: `supabase/matching.sql` (`match_listings_for_request`); app calls it via `supabase.rpc` with a client-side fallback.
+- **Unavailable → 24h auto-archive job** — DONE: `supabase/jobs.sql` (`set_unavailable_since` trigger + `archive_stale_unavailable()` function, scheduled hourly via pg_cron when available).
 - **Storage bucket RLS policies** (listing-photos public-read; driver-docs + delivery-proof private, owner/party/admin only) — deferred: written when camera/upload flows land (photos, driver docs, delivery proof).
 - **Google OAuth provider** — deferred: email/password shipped first; Google enabled when its Cloud OAuth client is configured.
 - **App-store gates** (in-app account deletion action, privacy policy, ToS) — deferred: pre-launch milestone (§12.14).

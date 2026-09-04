@@ -35,6 +35,12 @@ class FakeListingRepository implements ListingRepository {
   }
 
   @override
+  Future<List<Listing>> getListingsByIds(List<String> ids) async {
+    await _latency();
+    return _listings.where((l) => ids.contains(l.id)).toList();
+  }
+
+  @override
   Future<List<Listing>> getListingsBySeller(String sellerId) async {
     await _latency();
     return _listings.where((l) => l.sellerId == sellerId).toList();

@@ -67,6 +67,9 @@ abstract interface class ListingRepository {
 
   Future<Listing?> getListingById(String id);
 
+  /// Fetch several listings by id (used by server-side matching).
+  Future<List<Listing>> getListingsByIds(List<String> ids);
+
   /// Listings belonging to one seller (any status).
   Future<List<Listing>> getListingsBySeller(String sellerId);
 

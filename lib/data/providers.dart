@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/supabase_config.dart';
 import '../core/location/geo.dart';
 import 'location_provider.dart';
+import '../models/app_notification.dart';
 import '../models/conversation.dart';
 import '../models/deal.dart';
 import '../models/delivery.dart';
@@ -28,6 +29,7 @@ import 'repositories/deal_repository.dart';
 import 'repositories/delivery_repository.dart';
 import 'repositories/listing_repository.dart';
 import 'repositories/message_repository.dart';
+import 'repositories/notification_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'repositories/report_repository.dart';
 import 'repositories/request_repository.dart';
@@ -44,6 +46,7 @@ import 'supabase/supabase_deal_repository.dart';
 import 'supabase/supabase_delivery_repository.dart';
 import 'supabase/supabase_listing_repository.dart';
 import 'supabase/supabase_message_repository.dart';
+import 'supabase/supabase_notification_repository.dart';
 import 'supabase/supabase_profile_repository.dart';
 import 'supabase/supabase_report_repository.dart';
 import 'supabase/supabase_request_repository.dart';
@@ -113,6 +116,45 @@ final blockRepositoryProvider = Provider<BlockRepository>((ref) {
       ? SupabaseBlockRepository()
       : FakeBlockRepository();
 });
+
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
+  return SupabaseConfig.isConfigured
+      ? SupabaseNotificationRepository()
+      : FakeNotificationRepository();
+});
+
+/// The current user's notifications, newest first (reactive to auth).
+final myNotificationsProvider =
+    FutureProvider<List<AppNotification>>((ref) async {
+  if (SupabaseConfig.isConfigured) ref.watch(appAuthProvider);
+  return ref.watch(notificationRepositoryProvider).getMyNotifications();
+});
+
+/// Unread notification count for the bell badge.
+final unreadNotificationCountProvider = Provider<int>((ref) {
+  final list = ref.watch(myNotificationsProvider).valueOrNull ?? const [];
+  return list.where((n) => !n.read).length;
+});
+
+final notificationServiceProvider =
+    Provider<NotificationService>((ref) => NotificationService(ref));
+
+class NotificationService {
+  NotificationService(this.ref);
+  final Ref ref;
+
+  Future<void> markRead(String id) async {
+    await ref.read(notificationRepositoryProvider).markRead(id);
+    ref.invalidate(myNotificationsProvider);
+  }
+
+  Future<void> markAllRead() async {
+    await ref.read(notificationRepositoryProvider).markAllRead();
+    ref.invalidate(myNotificationsProvider);
+  }
+
+  void refresh() => ref.invalidate(myNotificationsProvider);
+}
 
 /// Ids the current user has blocked (drives hiding + contact guards).
 final blockedIdsProvider = FutureProvider<Set<String>>((ref) async {

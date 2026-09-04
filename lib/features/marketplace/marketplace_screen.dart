@@ -10,6 +10,7 @@ import '../../data/location_provider.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/listing_repository.dart';
 import '../../models/enums.dart';
+import '../notifications/notifications_screen.dart';
 import 'widgets/listing_card.dart';
 import 'widgets/location_picker_sheet.dart';
 
@@ -22,7 +23,10 @@ class MarketplaceScreen extends ConsumerWidget {
     final filter = ref.watch(listingFilterProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const BrandWordmark()),
+      appBar: AppBar(
+        title: const BrandWordmark(),
+        actions: const [NotificationBell()],
+      ),
       body: Column(
         children: [
           const _LocationHeader(),

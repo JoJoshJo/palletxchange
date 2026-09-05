@@ -54,4 +54,19 @@ class AdminService {
     ref.invalidate(allProfilesProvider);
     ref.invalidate(profileByIdProvider(driverId));
   }
+
+  /// Suspend/restore a user account (admin-only RPC).
+  Future<void> setBanned(
+    String userId, {
+    required bool banned,
+    String? reason,
+  }) async {
+    await Supabase.instance.client.rpc('admin_set_banned', params: {
+      'p_user': userId,
+      'p_banned': banned,
+      'p_reason': reason,
+    });
+    ref.invalidate(allProfilesProvider);
+    ref.invalidate(profileByIdProvider(userId));
+  }
 }

@@ -105,6 +105,12 @@ class FakeDealRepository implements DealRepository {
   }
 
   @override
+  Future<List<Deal>> getAllDeals() async {
+    await _latency();
+    return List.unmodifiable(_deals);
+  }
+
+  @override
   Future<Deal?> getDealById(String id) async {
     await _latency();
     for (final d in _deals) {

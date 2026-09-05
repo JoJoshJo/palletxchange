@@ -457,43 +457,79 @@ final allReportsProvider = FutureProvider<List<Report>>((ref) {
   return ref.watch(reportRepositoryProvider).getAllReports();
 });
 
+final allDealsProvider = FutureProvider<List<Deal>>((ref) {
+  return ref.watch(dealRepositoryProvider).getAllDeals();
+});
+
 /// Aggregate counts for the admin overview.
 class AdminStats {
   const AdminStats({
-    required this.users,
+    required this.totalUsers,
+    required this.usersByType,
     required this.activeListings,
     required this.dealsByStatus,
+    required this.completedDealValue,
     required this.openReports,
+    required this.signups7,
+    required this.signups30,
+    required this.listings7,
+    required this.listings30,
+    required this.deals7,
+    required this.deals30,
   });
-  final int users;
+  final int totalUsers;
+  final Map<AccountType, int> usersByType;
   final int activeListings;
   final Map<DealStatus, int> dealsByStatus;
+  final double completedDealValue;
   final int openReports;
+  final int signups7;
+  final int signups30;
+  final int listings7;
+  final int listings30;
+  final int deals7;
+  final int deals30;
 }
 
 final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
   final profiles = await ref.watch(allProfilesProvider.future);
   final listings = await ref.watch(allListingsProvider.future);
   final reports = await ref.watch(allReportsProvider.future);
+  final deals = await ref.watch(allDealsProvider.future);
 
-  // Deals across all known users (dedup by id).
-  final dealRepo = ref.watch(dealRepositoryProvider);
-  final seen = <String, DealStatus>{};
+  final now = DateTime.now();
+  final d7 = now.subtract(const Duration(days: 7));
+  final d30 = now.subtract(const Duration(days: 30));
+  int since(Iterable<DateTime?> dates, DateTime cutoff) =>
+      dates.where((t) => t != null && t.isAfter(cutoff)).length;
+
+  final byType = <AccountType, int>{};
   for (final p in profiles) {
-    for (final d in await dealRepo.getDealsForUser(p.id)) {
-      seen[d.id] = d.dealStatus;
-    }
+    byType[p.accountType] = (byType[p.accountType] ?? 0) + 1;
   }
+
   final byStatus = <DealStatus, int>{};
-  for (final s in seen.values) {
-    byStatus[s] = (byStatus[s] ?? 0) + 1;
+  double completedValue = 0;
+  for (final d in deals) {
+    byStatus[d.dealStatus] = (byStatus[d.dealStatus] ?? 0) + 1;
+    if (d.dealStatus == DealStatus.completed) {
+      completedValue += d.totalPrice + d.deliveryFee;
+    }
   }
 
   return AdminStats(
-    users: profiles.length,
+    totalUsers: profiles.length,
+    usersByType: byType,
     activeListings:
         listings.where((l) => l.status == ListingStatus.active).length,
     dealsByStatus: byStatus,
+    completedDealValue: completedValue,
     openReports: reports.where((r) => r.status == ReportStatus.open).length,
+    signups7: since(profiles.map((p) => p.createdAt), d7),
+    signups30: since(profiles.map((p) => p.createdAt), d30),
+    listings7: since(listings.map((l) => l.createdAt), d7),
+    listings30: since(listings.map((l) => l.createdAt), d30),
+    deals7: since(deals.map((d) => d.createdAt), d7),
+    deals30: since(deals.map((d) => d.createdAt), d30),
   );
 });

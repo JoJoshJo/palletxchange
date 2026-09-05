@@ -12,7 +12,7 @@ class SupabaseProfileRepository implements ProfileRepository {
       'id, name, email, phone, business_name, account_type, is_admin, '
       'address, city, state, zip, latitude, longitude, verified_status, '
       'rating, driver_approved, driver_license_url, driver_insurance_url, '
-      'created_at';
+      'banned, created_at';
 
   @override
   Future<Profile> getCurrentProfile() async {

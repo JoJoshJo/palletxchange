@@ -6,21 +6,61 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/providers.dart';
 import '../../../models/enums.dart';
 
-class AdminListingsTab extends ConsumerWidget {
+class AdminListingsTab extends ConsumerStatefulWidget {
   const AdminListingsTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminListingsTab> createState() => _AdminListingsTabState();
+}
+
+class _AdminListingsTabState extends ConsumerState<AdminListingsTab> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(allListingsProvider);
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text("Couldn't load listings")),
-      data: (listings) => ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: listings.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (context, i) {
-          final l = listings[i];
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: TextField(
+            onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+            decoration: const InputDecoration(
+              hintText: 'Search title, seller, city',
+              prefixIcon: Icon(Icons.search, size: 20),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+          ),
+        ),
+        Expanded(
+          child: async.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) =>
+                const Center(child: Text("Couldn't load listings")),
+            data: (all) {
+              final listings = _query.isEmpty
+                  ? all
+                  : all.where((l) {
+                      final hay = [
+                        l.title,
+                        l.seller?.displayName ?? '',
+                        l.city ?? '',
+                      ].join(' ').toLowerCase();
+                      return hay.contains(_query);
+                    }).toList();
+              if (listings.isEmpty) {
+                return const Center(
+                  child: Text('No listings match.',
+                      style: TextStyle(color: AppColors.textMuted)),
+                );
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                itemCount: listings.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, i) {
+                  final l = listings[i];
           final archived = l.status == ListingStatus.archived;
           return Container(
             padding: const EdgeInsets.all(12),
@@ -82,8 +122,12 @@ class AdminListingsTab extends ConsumerWidget {
               ],
             ),
           );
-        },
-      ),
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

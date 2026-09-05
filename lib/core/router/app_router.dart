@@ -11,6 +11,7 @@ import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/reset_request_screen.dart';
 import '../../features/auth/set_password_screen.dart';
 import '../../features/auth/splash_screen.dart';
+import '../../features/auth/suspended_screen.dart';
 import '../../features/common/error_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
 import '../../features/chat/thread_screen.dart';
@@ -81,12 +82,26 @@ String? _guard(AppAuth auth, GoRouterState state) {
   if (!auth.isLoggedIn) {
     return (onAuth || onReset || onConfirm) ? null : '/auth';
   }
+
+  final profile = auth.currentProfile;
+
+  // Suspended accounts can't do anything but see the suspended screen.
+  if (profile?.banned ?? false) {
+    return loc == '/suspended' ? null : '/suspended';
+  }
+
+  // Admin is OWNER-ONLY and administers only: dedicated home, no marketplace,
+  // and onboarding is skipped.
+  final isAdmin = profile?.isAdmin ?? false;
+  if (isAdmin) {
+    final allowed = loc == '/admin' || loc == '/set-password';
+    return allowed ? null : '/admin';
+  }
+
   if (!auth.profileComplete) return onOnboarding ? null : '/onboarding';
 
   // Role-based home: drivers get the driver shell, traders the marketplace.
-  final profile = auth.currentProfile;
   final isDriver = profile?.accountType == AccountType.driver;
-  final isAdmin = profile?.isAdmin ?? false;
   final home = isDriver ? '/driver' : '/browse';
 
   // From auth/splash/onboarding/callback, land on the right home.
@@ -94,18 +109,14 @@ String? _guard(AppAuth auth, GoRouterState state) {
       onReset ||
       onOnboarding ||
       loc == '/splash' ||
-      loc == '/login-callback') {
-    return home;
+      loc == '/login-callback' ||
+      loc == '/admin') {
+    return home; // non-admins never stay on /admin
   }
 
-  // Admin panel is gated to admins.
-  if (loc == '/admin' && !isAdmin) return home;
-
-  // A driver cannot buy/sell — confine them to the driver shell (a driver who
-  // is also an admin may still open /admin). Keep traders out of /driver.
+  // A driver cannot buy/sell — confine them to the driver shell.
   if (isDriver) {
-    final allowed =
-        loc == '/driver' || loc == '/set-password' || (loc == '/admin' && isAdmin);
+    final allowed = loc == '/driver' || loc == '/set-password';
     if (!allowed) return '/driver';
   } else if (loc == '/driver') {
     return '/browse';
@@ -115,6 +126,7 @@ String? _guard(AppAuth auth, GoRouterState state) {
 
 final List<RouteBase> _routes = [
     GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+    GoRoute(path: '/suspended', builder: (_, _) => const SuspendedScreen()),
     GoRoute(path: '/auth', builder: (_, _) => const AuthScreen()),
     GoRoute(
       path: '/login-callback',

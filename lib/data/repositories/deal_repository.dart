@@ -4,6 +4,9 @@ abstract interface class DealRepository {
   /// Deals where the user is buyer, seller, or driver.
   Future<List<Deal>> getDealsForUser(String userId);
 
+  /// Every deal (admin oversight; RLS admin-bypass).
+  Future<List<Deal>> getAllDeals();
+
   Future<Deal?> getDealById(String id);
 
   Future<Deal> createDeal(Deal deal);

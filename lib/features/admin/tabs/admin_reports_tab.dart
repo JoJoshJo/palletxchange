@@ -4,6 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/providers.dart';
 import '../../../models/enums.dart';
+import '../admin_user_detail_screen.dart';
+
+Future<void> _removeListing(WidgetRef ref, String listingId) async {
+  final listing =
+      await ref.read(listingRepositoryProvider).getListingById(listingId);
+  if (listing != null) {
+    await ref.read(adminServiceProvider).removeListing(listing);
+  }
+}
 
 class AdminReportsTab extends ConsumerWidget {
   const AdminReportsTab({super.key});
@@ -96,20 +105,42 @@ class AdminReportsTab extends ConsumerWidget {
                       ),
                     ),
                   ],
-                  if (open) ...[
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        onPressed: () =>
-                            ref.read(adminServiceProvider).resolveReport(r),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(110, 40),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (r.reportedUser != null)
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AdminUserDetailScreen(
+                                  userId: r.reportedUser!),
+                            ),
+                          ),
+                          icon: const Icon(Icons.person_outline, size: 16),
+                          label: const Text('View user'),
                         ),
-                        child: const Text('Resolve'),
-                      ),
-                    ),
-                  ],
+                      if (r.listingId != null)
+                        OutlinedButton.icon(
+                          onPressed: () => _removeListing(ref, r.listingId!),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFC0392B),
+                          ),
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text('Remove listing'),
+                        ),
+                      if (open)
+                        ElevatedButton(
+                          onPressed: () =>
+                              ref.read(adminServiceProvider).resolveReport(r),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(100, 40),
+                          ),
+                          child: const Text('Resolve'),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             );

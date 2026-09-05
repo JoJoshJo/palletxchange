@@ -21,6 +21,7 @@ class Profile {
     this.driverApproved = false,
     this.driverLicenseUrl,
     this.driverInsuranceUrl,
+    this.banned = false,
     this.createdAt,
   });
 
@@ -48,6 +49,9 @@ class Profile {
   /// Storage paths (private driver-docs bucket) for submitted documents.
   final String? driverLicenseUrl;
   final String? driverInsuranceUrl;
+
+  /// Suspended by an admin — blocked from acting.
+  final bool banned;
   final DateTime? createdAt;
 
   bool get hasDriverDocs =>
@@ -91,6 +95,7 @@ class Profile {
         driverApproved: json['driver_approved'] as bool? ?? false,
         driverLicenseUrl: json['driver_license_url'] as String?,
         driverInsuranceUrl: json['driver_insurance_url'] as String?,
+        banned: json['banned'] as bool? ?? false,
         createdAt: json['created_at'] == null
             ? null
             : DateTime.parse(json['created_at'] as String),
@@ -114,6 +119,7 @@ class Profile {
         'rating': rating,
         'driver_license_url': driverLicenseUrl,
         'driver_insurance_url': driverInsuranceUrl,
+        'banned': banned,
         'created_at': createdAt?.toIso8601String(),
       };
 
@@ -136,6 +142,7 @@ class Profile {
     bool? driverApproved,
     String? driverLicenseUrl,
     String? driverInsuranceUrl,
+    bool? banned,
     DateTime? createdAt,
   }) =>
       Profile(
@@ -157,6 +164,7 @@ class Profile {
         driverApproved: driverApproved ?? this.driverApproved,
         driverLicenseUrl: driverLicenseUrl ?? this.driverLicenseUrl,
         driverInsuranceUrl: driverInsuranceUrl ?? this.driverInsuranceUrl,
+        banned: banned ?? this.banned,
         createdAt: createdAt ?? this.createdAt,
       );
 }

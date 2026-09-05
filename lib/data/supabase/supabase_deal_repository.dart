@@ -20,6 +20,15 @@ class SupabaseDealRepository implements DealRepository {
   }
 
   @override
+  Future<List<Deal>> getAllDeals() async {
+    final rows = await _c
+        .from('deals')
+        .select()
+        .order('created_at', ascending: false);
+    return (rows as List).map((r) => Deal.fromJson(r)).toList();
+  }
+
+  @override
   Future<Deal?> getDealById(String id) async {
     final row = await _c.from('deals').select().eq('id', id).maybeSingle();
     return row == null ? null : Deal.fromJson(row);

@@ -45,18 +45,18 @@ as $$
       end as dist
     from public.listings l
     where l.status = 'active'
-      and (p_type      is null or l.pallet_type = p_type)
-      and (p_size      is null or l.pallet_size = p_size)
-      and (p_condition is null or l.condition   = p_condition)
+      and (p_type      is null or l.pallet_type::text = p_type)
+      and (p_size      is null or l.pallet_size::text = p_size)
+      and (p_condition is null or l.condition::text   = p_condition)
       and (not p_free_only     or l.is_free)
       and (not p_delivery_only or l.delivery_available)
-      and (not p_recyclable    or l.condition in ('Damaged','Scrap/recycling only'))
+      and (not p_recyclable    or l.condition::text in ('Damaged','Scrap/recycling only'))
       and (p_max_price is null  or l.price_per_pallet <= p_max_price)
       and (p_search is null or p_search = '' or
            (l.title ilike '%'||p_search||'%'
             or coalesce(l.city,'')  ilike '%'||p_search||'%'
             or coalesce(l.state,'') ilike '%'||p_search||'%'
-            or l.pallet_type        ilike '%'||p_search||'%'))
+            or l.pallet_type::text  ilike '%'||p_search||'%'))
   )
   select
     to_jsonb(s) - 'dist'

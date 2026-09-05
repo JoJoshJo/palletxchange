@@ -88,7 +88,10 @@ class _ThreadScreenState extends ConsumerState<ThreadScreen> {
                     ),
                   );
                 }
+                // messages are newest-first; reverse:true renders newest at the
+                // bottom and puts older messages toward the top.
                 return ListView.builder(
+                  reverse: true,
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                   itemCount: messages.length,
                   itemBuilder: (context, i) {

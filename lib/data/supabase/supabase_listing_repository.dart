@@ -26,6 +26,8 @@ class SupabaseListingRepository implements ListingRepository {
   @override
   Future<List<Listing>> getListings({
     ListingFilter filter = const ListingFilter(),
+    int limit = 25,
+    int offset = 0,
   }) async {
     var query =
         _c.from('listings').select(_select).eq('status', 'active');
@@ -50,24 +52,64 @@ class SupabaseListingRepository implements ListingRepository {
     if (filter.maxPrice != null) {
       query = query.lte('price_per_pallet', filter.maxPrice!);
     }
-
-    final rows = await query.order('created_at', ascending: false);
-    var listings = (rows as List).map((r) => _fromRow(r)).toList();
-
-    // Free-text search across title/city/state/type (client-side).
-    final q = filter.search?.trim().toLowerCase();
+    final q = filter.search?.trim();
     if (q != null && q.isNotEmpty) {
-      listings = listings.where((l) {
-        final hay = [
-          l.title,
-          l.city ?? '',
-          l.state ?? '',
-          l.palletType.label,
-        ].join(' ').toLowerCase();
-        return hay.contains(q);
-      }).toList();
+      // Server-side text search (title/city/state/type).
+      query = query.or('title.ilike.%$q%,city.ilike.%$q%,'
+          'state.ilike.%$q%,pallet_type.ilike.%$q%');
     }
-    return listings;
+
+    final rows = await query
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+    return (rows as List).map((r) => _fromRow(r)).toList();
+  }
+
+  @override
+  Future<List<Listing>> searchListings({
+    ListingFilter filter = const ListingFilter(),
+    double? lat,
+    double? lng,
+    int? radiusMiles,
+    int limit = 25,
+    int offset = 0,
+  }) async {
+    // No coords → plain paged query (client attaches no distance).
+    if (lat == null || lng == null || radiusMiles == null) {
+      return getListings(filter: filter, limit: limit, offset: offset);
+    }
+    try {
+      final rows = await _c.rpc('listings_within_radius', params: {
+        'p_lat': lat,
+        'p_lng': lng,
+        'p_radius_miles': radiusMiles.toDouble(),
+        'p_limit': limit,
+        'p_offset': offset,
+        'p_type': filter.type?.value,
+        'p_size': filter.size?.value,
+        'p_condition': filter.condition?.value,
+        'p_free_only': filter.freeOnly,
+        'p_delivery_only': filter.deliveryOnly,
+        'p_recyclable': filter.recyclableOnly,
+        'p_max_price': filter.maxPrice,
+        'p_search': filter.search?.trim(),
+      });
+      return (rows as List).map((r) {
+        final map = r as Map<String, dynamic>;
+        final listing = Listing.fromJson(map);
+        final seller = map['seller'];
+        final dist = (map['distance_miles'] as num?)?.toDouble();
+        return listing.copyWith(
+          seller: seller is Map<String, dynamic>
+              ? Profile.fromJson(seller)
+              : null,
+          distanceMiles: dist,
+        );
+      }).toList();
+    } catch (_) {
+      // Fallback: paged plain query (radius not applied server-side).
+      return getListings(filter: filter, limit: limit, offset: offset);
+    }
   }
 
   @override
@@ -96,11 +138,12 @@ class SupabaseListingRepository implements ListingRepository {
   }
 
   @override
-  Future<List<Listing>> getAllListings() async {
+  Future<List<Listing>> getAllListings({int limit = 25, int offset = 0}) async {
     final rows = await _c
         .from('listings')
         .select(_select)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
     return (rows as List).map((r) => _fromRow(r)).toList();
   }
 

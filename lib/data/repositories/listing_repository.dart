@@ -62,8 +62,24 @@ class ListingFilter {
 /// Read/write access to listings. The fake implementation runs in memory;
 /// a Supabase implementation swaps in behind the same interface (BRAIN §12).
 abstract interface class ListingRepository {
-  /// Active marketplace listings, optionally filtered.
-  Future<List<Listing>> getListings({ListingFilter filter});
+  /// Active marketplace listings, optionally filtered + paged.
+  Future<List<Listing>> getListings({
+    ListingFilter filter,
+    int limit,
+    int offset,
+  });
+
+  /// Paged marketplace query with optional server-side radius (nearest-first,
+  /// distance attached). Used by the marketplace; falls back to [getListings]
+  /// + client-side distance when radius/coords are unavailable.
+  Future<List<Listing>> searchListings({
+    ListingFilter filter = const ListingFilter(),
+    double? lat,
+    double? lng,
+    int? radiusMiles,
+    int limit = 25,
+    int offset = 0,
+  });
 
   Future<Listing?> getListingById(String id);
 
@@ -73,8 +89,8 @@ abstract interface class ListingRepository {
   /// Listings belonging to one seller (any status).
   Future<List<Listing>> getListingsBySeller(String sellerId);
 
-  /// Every listing, any status (admin oversight).
-  Future<List<Listing>> getAllListings();
+  /// Every listing, any status (admin oversight), paged.
+  Future<List<Listing>> getAllListings({int limit, int offset});
 
   /// Persists a new listing and returns the stored copy (with id).
   Future<Listing> createListing(Listing listing);

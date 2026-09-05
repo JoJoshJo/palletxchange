@@ -6,8 +6,8 @@ abstract interface class ProfileRepository {
 
   Future<Profile?> getProfileById(String id);
 
-  /// All known profiles (admin oversight).
-  Future<List<Profile>> getAllProfiles();
+  /// All known profiles (admin oversight), paged.
+  Future<List<Profile>> getAllProfiles({int limit, int offset});
 
   Future<Profile> updateProfile(Profile profile);
 }

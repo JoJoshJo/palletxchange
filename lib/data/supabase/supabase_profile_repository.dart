@@ -33,8 +33,12 @@ class SupabaseProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<List<Profile>> getAllProfiles() async {
-    final rows = await _c.from('profiles').select(_cols);
+  Future<List<Profile>> getAllProfiles({int limit = 25, int offset = 0}) async {
+    final rows = await _c
+        .from('profiles')
+        .select(_cols)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
     return (rows as List).map((r) => Profile.fromJson(r)).toList();
   }
 

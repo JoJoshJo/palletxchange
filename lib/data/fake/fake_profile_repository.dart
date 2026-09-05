@@ -33,9 +33,11 @@ class FakeProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<List<Profile>> getAllProfiles() async {
+  Future<List<Profile>> getAllProfiles({int limit = 25, int offset = 0}) async {
     await _latency();
-    return _profiles.values.toList();
+    final all = _profiles.values.toList();
+    if (offset >= all.length) return const [];
+    return all.sublist(offset, (offset + limit).clamp(0, all.length));
   }
 
   @override

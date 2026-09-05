@@ -112,13 +112,15 @@ class FakeMessageRepository implements MessageRepository {
       );
 
   @override
-  Future<List<Conversation>> getConversationsForUser(String userId) async {
+  Future<List<Conversation>> getConversationsForUser(String userId,
+      {int limit = 25, int offset = 0}) async {
     await _latency();
     final list =
         _conversations.values.map((c) => _hydrate(c, userId)).toList();
     list.sort((a, b) => (b.lastMessage?.createdAt ?? DateTime(0))
         .compareTo(a.lastMessage?.createdAt ?? DateTime(0)));
-    return list;
+    if (offset >= list.length) return const [];
+    return list.sublist(offset, (offset + limit).clamp(0, list.length));
   }
 
   @override
@@ -141,13 +143,16 @@ class FakeMessageRepository implements MessageRepository {
   }
 
   @override
-  Future<List<Message>> getMessages(String conversationId) async {
+  Future<List<Message>> getMessages(String conversationId,
+      {int limit = 30, int offset = 0}) async {
     await _latency();
-    return _messages
+    final all = _messages
         .where((m) => m.conversationId == conversationId)
         .toList()
-      ..sort((a, b) => (a.createdAt ?? DateTime(0))
-          .compareTo(b.createdAt ?? DateTime(0)));
+      ..sort((a, b) => (b.createdAt ?? DateTime(0)) // newest first
+          .compareTo(a.createdAt ?? DateTime(0)));
+    if (offset >= all.length) return const [];
+    return all.sublist(offset, (offset + limit).clamp(0, all.length));
   }
 
   @override

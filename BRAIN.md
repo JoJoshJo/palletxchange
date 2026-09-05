@@ -290,6 +290,8 @@ The bar every backend milestone clears before moving on. Sized for a B2B marketp
 Record anything deferred in the list below, with a reason.
 
 ### Deferred (with reason) — keep current
+- **Server-side radius/distance filtering** — DONE: `supabase/geo.sql` (`listings_within_radius` RPC on cube/earthdistance). Marketplace calls it paged (nearest-first, distance attached) with a client-side Haversine fallback.
+- **Pagination / infinite scroll** — DONE: marketplace + admin all-rows lists paginate with infinite scroll (`PagedNotifier`); per-user lists (deals, chat, thread messages) are bounded (100/50/100). Conversation list N+1 batched. Remaining: infinite scroll for per-user lists if a single user ever exceeds the bounds (unlikely near-term).
 - **Email-confirmation deep link into the app** — deferred: UX polish; bundle it with push-notification deep links (`/listing/:id`, `/deal/:id`, etc.) in the notifications milestone. Today confirmation (when on) is handled via the email link + manual log in.
 - **Authenticated cross-user RLS test** — deferred: pending the first confirmed users. Anon-level RLS is verified (anon cannot read deals/messages or write listings); the user-vs-user check (user A cannot read user B's deals) runs once two real accounts exist.
 - **Matching as a server-side RPC** (BRAIN §7 scoring) — DONE: `supabase/matching.sql` (`match_listings_for_request`); app calls it via `supabase.rpc` with a client-side fallback.

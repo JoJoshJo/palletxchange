@@ -14,15 +14,38 @@ class FakeListingRepository implements ListingRepository {
   Future<void> _latency() =>
       Future<void>.delayed(const Duration(milliseconds: 250));
 
+  List<Listing> _page(List<Listing> src, int offset, int limit) {
+    if (offset >= src.length) return const [];
+    return src.sublist(offset, (offset + limit).clamp(0, src.length));
+  }
+
   @override
-  Future<List<Listing>> getListings({ListingFilter filter = const ListingFilter()}) async {
+  Future<List<Listing>> getListings({
+    ListingFilter filter = const ListingFilter(),
+    int limit = 25,
+    int offset = 0,
+  }) async {
     await _latency();
-    return _listings
+    final all = _listings
         .where((l) => l.status == ListingStatus.active)
         .where((l) => _matches(l, filter))
         .toList()
       ..sort((a, b) =>
           (a.distanceMiles ?? 1e9).compareTo(b.distanceMiles ?? 1e9));
+    return _page(all, offset, limit);
+  }
+
+  @override
+  Future<List<Listing>> searchListings({
+    ListingFilter filter = const ListingFilter(),
+    double? lat,
+    double? lng,
+    int? radiusMiles,
+    int limit = 25,
+    int offset = 0,
+  }) async {
+    // Fake: reuse the seed distances; ignore radius precision.
+    return getListings(filter: filter, limit: limit, offset: offset);
   }
 
   @override
@@ -47,9 +70,9 @@ class FakeListingRepository implements ListingRepository {
   }
 
   @override
-  Future<List<Listing>> getAllListings() async {
+  Future<List<Listing>> getAllListings({int limit = 25, int offset = 0}) async {
     await _latency();
-    return List.unmodifiable(_listings);
+    return _page(_listings, offset, limit);
   }
 
   @override

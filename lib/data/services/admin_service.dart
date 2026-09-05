@@ -19,6 +19,7 @@ class AdminService {
         .read(profileRepositoryProvider)
         .updateProfile(profile.copyWith(verifiedStatus: !profile.verifiedStatus));
     ref.invalidate(allProfilesProvider);
+    ref.invalidate(adminUsersPagingProvider);
     ref.invalidate(profileByIdProvider(profile.id));
   }
 
@@ -28,6 +29,7 @@ class AdminService {
         .read(listingRepositoryProvider)
         .updateListing(listing.copyWith(status: ListingStatus.archived));
     ref.invalidate(allListingsProvider);
+    ref.invalidate(adminListingsPagingProvider);
     ref.invalidate(marketplaceListingsProvider);
     ref.invalidate(listingByIdProvider(listing.id));
   }
@@ -52,6 +54,8 @@ class AdminService {
       'p_reason': reason,
     });
     ref.invalidate(allProfilesProvider);
+    ref.invalidate(adminUsersPagingProvider);
+    ref.invalidate(pendingDriversProvider);
     ref.invalidate(profileByIdProvider(driverId));
   }
 
@@ -67,6 +71,7 @@ class AdminService {
       'p_reason': reason,
     });
     ref.invalidate(allProfilesProvider);
+    ref.invalidate(adminUsersPagingProvider);
     ref.invalidate(profileByIdProvider(userId));
   }
 }

@@ -7,19 +7,45 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/brand_wordmark.dart';
 import '../../data/location_provider.dart';
+import '../../data/paging.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/listing_repository.dart';
 import '../../models/enums.dart';
+import '../../models/listing.dart';
 import '../notifications/notifications_screen.dart';
 import 'widgets/listing_card.dart';
 import 'widgets/location_picker_sheet.dart';
 
-class MarketplaceScreen extends ConsumerWidget {
+class MarketplaceScreen extends ConsumerStatefulWidget {
   const MarketplaceScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final listingsAsync = ref.watch(marketplaceListingsProvider);
+  ConsumerState<MarketplaceScreen> createState() => _MarketplaceScreenState();
+}
+
+class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      if (_scroll.position.pixels >=
+          _scroll.position.maxScrollExtent - 400) {
+        ref.read(marketplaceListingsProvider.notifier).loadMore();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(marketplaceListingsProvider);
     final filter = ref.watch(listingFilterProvider);
 
     return Scaffold(
@@ -35,36 +61,53 @@ class MarketplaceScreen extends ConsumerWidget {
           const Divider(height: 1),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async =>
-                  ref.invalidate(marketplaceListingsProvider),
-              child: listingsAsync.when(
-                loading: () => const _LoadingList(),
-                error: (e, _) => _ErrorState(
-                  onRetry: () => ref.invalidate(marketplaceListingsProvider),
-                ),
-                data: (listings) {
-                  if (listings.isEmpty) {
-                    return _EmptyState(hasFilters: !filter.isEmpty, ref: ref);
-                  }
-                  return ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                    itemCount: listings.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, i) {
-                      final l = listings[i];
-                      return ListingCard(
-                        listing: l,
-                        onTap: () => context.push('/listing/${l.id}'),
-                      );
-                    },
-                  );
-                },
-              ),
+              onRefresh: () =>
+                  ref.read(marketplaceListingsProvider.notifier).refresh(),
+              child: _buildBody(state, filter),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody(PagedState<Listing> state, ListingFilter filter) {
+    if (state.isLoading) return const _LoadingList();
+    if (state.error != null && state.isEmpty) {
+      return _ErrorState(
+        onRetry: () =>
+            ref.read(marketplaceListingsProvider.notifier).refresh(),
+      );
+    }
+    if (state.isEmpty) {
+      return _EmptyState(hasFilters: !filter.isEmpty, ref: ref);
+    }
+    final items = state.items;
+    return ListView.separated(
+      controller: _scroll,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      itemCount: items.length + (state.hasMore ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: 14),
+      itemBuilder: (context, i) {
+        if (i >= items.length) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+            ),
+          );
+        }
+        final l = items[i];
+        return ListingCard(
+          listing: l,
+          onTap: () => context.push('/listing/${l.id}'),
+        );
+      },
     );
   }
 }

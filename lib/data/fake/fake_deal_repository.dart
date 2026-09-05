@@ -92,9 +92,10 @@ class FakeDealRepository implements DealRepository {
       Future<void>.delayed(const Duration(milliseconds: 150));
 
   @override
-  Future<List<Deal>> getDealsForUser(String userId) async {
+  Future<List<Deal>> getDealsForUser(String userId,
+      {int limit = 25, int offset = 0}) async {
     await _latency();
-    return _deals
+    final all = _deals
         .where((d) =>
             d.buyerId == userId ||
             d.sellerId == userId ||
@@ -102,12 +103,15 @@ class FakeDealRepository implements DealRepository {
         .toList()
       ..sort((a, b) => (b.createdAt ?? DateTime(0))
           .compareTo(a.createdAt ?? DateTime(0)));
+    if (offset >= all.length) return const [];
+    return all.sublist(offset, (offset + limit).clamp(0, all.length));
   }
 
   @override
-  Future<List<Deal>> getAllDeals() async {
+  Future<List<Deal>> getAllDeals({int limit = 25, int offset = 0}) async {
     await _latency();
-    return List.unmodifiable(_deals);
+    if (offset >= _deals.length) return const [];
+    return _deals.sublist(offset, (offset + limit).clamp(0, _deals.length));
   }
 
   @override

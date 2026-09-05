@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/supabase_config.dart';
 import '../core/location/geo.dart';
 import 'location_provider.dart';
+import 'paging.dart';
 import '../models/app_notification.dart';
 import '../models/conversation.dart';
 import '../models/deal.dart';
@@ -227,36 +228,41 @@ final profileByIdProvider =
 final listingFilterProvider =
     StateProvider<ListingFilter>((ref) => const ListingFilter());
 
-/// The marketplace list: filtered listings, with distance computed from the
-/// active search location and the radius applied client-side. Listings with
-/// unknown coordinates are always shown (distance unknown, never hidden).
-final marketplaceListingsProvider = FutureProvider<List<Listing>>((ref) async {
+/// The marketplace list — paged/infinite-scroll. Distance + radius are applied
+/// server-side (listings_within_radius RPC) when the active location has
+/// coordinates; blocked sellers are filtered per page. Recreated whenever the
+/// filter, location, or block set changes.
+final marketplaceListingsProvider = StateNotifierProvider.autoDispose<
+    PagedNotifier<Listing>, PagedState<Listing>>((ref) {
   final filter = ref.watch(listingFilterProvider);
   final loc = ref.watch(locationProvider);
   final blocked = ref.watch(blockedIdsProvider).valueOrNull ?? const <String>{};
-  var listings =
-      await ref.watch(listingRepositoryProvider).getListings(filter: filter);
-
-  // Hide listings from users I've blocked.
-  if (blocked.isNotEmpty) {
-    listings = listings.where((l) => !blocked.contains(l.sellerId)).toList();
-  }
-
-  if (!loc.hasCoords) return listings; // no location → no distance/radius
-
-  final out = <Listing>[];
-  for (final l in listings) {
-    if (l.latitude != null && l.longitude != null) {
-      final d = haversineMiles(loc.lat!, loc.lng!, l.latitude!, l.longitude!);
-      if (d > loc.radiusMiles) continue; // outside radius
-      out.add(l.copyWith(distanceMiles: d));
-    } else {
-      out.add(l); // unknown coords — keep, no distance
+  final repo = ref.watch(listingRepositoryProvider);
+  return PagedNotifier<Listing>((offset, limit) async {
+    var page = await repo.searchListings(
+      filter: filter,
+      lat: loc.hasCoords ? loc.lat : null,
+      lng: loc.hasCoords ? loc.lng : null,
+      radiusMiles: loc.hasCoords ? loc.radiusMiles : null,
+      limit: limit,
+      offset: offset,
+    );
+    // Client-side radius when the fallback (no RPC) returned raw rows.
+    if (loc.hasCoords) {
+      page = page.map((l) {
+        if (l.distanceMiles != null) return l;
+        if (l.latitude != null && l.longitude != null) {
+          return l.copyWith(distanceMiles:
+              haversineMiles(loc.lat!, loc.lng!, l.latitude!, l.longitude!));
+        }
+        return l;
+      }).toList();
     }
-  }
-  out.sort((a, b) =>
-      (a.distanceMiles ?? 1e9).compareTo(b.distanceMiles ?? 1e9));
-  return out;
+    if (blocked.isNotEmpty) {
+      page = page.where((l) => !blocked.contains(l.sellerId)).toList();
+    }
+    return page;
+  }, pageSize: 20);
 });
 
 /// A single listing by id (for the detail screen).
@@ -272,7 +278,7 @@ final dealServiceProvider = Provider<DealService>((ref) => DealService(ref));
 /// Deals where the current user is buyer, seller, or driver.
 final myDealsProvider = FutureProvider<List<Deal>>((ref) {
   final me = ref.watch(currentUserProvider);
-  return ref.watch(dealRepositoryProvider).getDealsForUser(me.id);
+  return ref.watch(dealRepositoryProvider).getDealsForUser(me.id, limit: 100);
 });
 
 final dealByIdProvider = FutureProvider.family<Deal?, String>((ref, id) {
@@ -368,7 +374,7 @@ final messageServiceProvider =
 
 final myConversationsProvider = FutureProvider<List<Conversation>>((ref) {
   final me = ref.watch(currentUserProvider);
-  return ref.watch(messageRepositoryProvider).getConversationsForUser(me.id);
+  return ref.watch(messageRepositoryProvider).getConversationsForUser(me.id, limit: 50);
 });
 
 final conversationByIdProvider =
@@ -378,7 +384,7 @@ final conversationByIdProvider =
 
 final messagesProvider =
     FutureProvider.family<List<Message>, String>((ref, conversationId) {
-  return ref.watch(messageRepositoryProvider).getMessages(conversationId);
+  return ref.watch(messageRepositoryProvider).getMessages(conversationId, limit: 100);
 });
 
 // ── Deliveries (driver job board) ──
@@ -446,11 +452,11 @@ final adminServiceProvider =
     Provider<AdminService>((ref) => AdminService(ref));
 
 final allProfilesProvider = FutureProvider<List<Profile>>((ref) {
-  return ref.watch(profileRepositoryProvider).getAllProfiles();
+  return ref.watch(profileRepositoryProvider).getAllProfiles(limit: 1000);
 });
 
 final allListingsProvider = FutureProvider<List<Listing>>((ref) {
-  return ref.watch(listingRepositoryProvider).getAllListings();
+  return ref.watch(listingRepositoryProvider).getAllListings(limit: 1000);
 });
 
 final allReportsProvider = FutureProvider<List<Report>>((ref) {
@@ -458,7 +464,24 @@ final allReportsProvider = FutureProvider<List<Report>>((ref) {
 });
 
 final allDealsProvider = FutureProvider<List<Deal>>((ref) {
-  return ref.watch(dealRepositoryProvider).getAllDeals();
+  return ref.watch(dealRepositoryProvider).getAllDeals(limit: 1000);
+});
+
+/// Paged/infinite-scroll admin lists (the genuinely unbounded all-rows views).
+final adminListingsPagingProvider = StateNotifierProvider.autoDispose<
+    PagedNotifier<Listing>, PagedState<Listing>>((ref) {
+  final repo = ref.watch(listingRepositoryProvider);
+  return PagedNotifier<Listing>(
+      (offset, limit) => repo.getAllListings(limit: limit, offset: offset),
+      pageSize: 25);
+});
+
+final adminUsersPagingProvider = StateNotifierProvider.autoDispose<
+    PagedNotifier<Profile>, PagedState<Profile>>((ref) {
+  final repo = ref.watch(profileRepositoryProvider);
+  return PagedNotifier<Profile>(
+      (offset, limit) => repo.getAllProfiles(limit: limit, offset: offset),
+      pageSize: 25);
 });
 
 /// Aggregate counts for the admin overview.

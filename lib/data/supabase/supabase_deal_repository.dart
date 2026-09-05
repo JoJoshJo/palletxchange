@@ -9,22 +9,31 @@ import '../repositories/deal_repository.dart';
 class SupabaseDealRepository implements DealRepository {
   SupabaseClient get _c => Supabase.instance.client;
 
+  /// Guard against string-built filters: the id must be a valid UUID.
+  static final _uuidRe = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+      r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
   @override
-  Future<List<Deal>> getDealsForUser(String userId) async {
+  Future<List<Deal>> getDealsForUser(String userId,
+      {int limit = 25, int offset = 0}) async {
+    if (!_uuidRe.hasMatch(userId)) return const [];
     final rows = await _c
         .from('deals')
         .select()
         .or('buyer_id.eq.$userId,seller_id.eq.$userId,driver_id.eq.$userId')
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
     return (rows as List).map((r) => Deal.fromJson(r)).toList();
   }
 
   @override
-  Future<List<Deal>> getAllDeals() async {
+  Future<List<Deal>> getAllDeals({int limit = 25, int offset = 0}) async {
     final rows = await _c
         .from('deals')
         .select()
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
     return (rows as List).map((r) => Deal.fromJson(r)).toList();
   }
 

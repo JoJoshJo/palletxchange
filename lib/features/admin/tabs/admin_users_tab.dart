@@ -15,10 +15,36 @@ class AdminUsersTab extends ConsumerStatefulWidget {
 
 class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
   String _query = '';
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
+        ref.read(adminUsersPagingProvider.notifier).loadMore();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(allProfilesProvider);
+    final state = ref.watch(adminUsersPagingProvider);
+    final list = _query.isEmpty
+        ? state.items
+        : state.items.where((p) {
+            final hay = [p.name, p.email ?? '', p.businessName ?? '']
+                .join(' ')
+                .toLowerCase();
+            return hay.contains(_query);
+          }).toList();
+
     return Column(
       children: [
         Padding(
@@ -26,41 +52,41 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
           child: TextField(
             onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
             decoration: const InputDecoration(
-              hintText: 'Search name, email, business',
+              hintText: 'Search loaded users',
               prefixIcon: Icon(Icons.search, size: 20),
               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
           ),
         ),
         Expanded(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text("Couldn't load users")),
-            data: (all) {
-              final list = _query.isEmpty
-                  ? all
-                  : all.where((p) {
-                      final hay = [
-                        p.name,
-                        p.email ?? '',
-                        p.businessName ?? '',
-                      ].join(' ').toLowerCase();
-                      return hay.contains(_query);
-                    }).toList();
-              if (list.isEmpty) {
-                return const Center(
-                  child: Text('No users match.',
-                      style: TextStyle(color: AppColors.textMuted)),
-                );
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                itemCount: list.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (_, i) => _UserRow(profile: list[i]),
-              );
-            },
-          ),
+          child: state.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : list.isEmpty
+                  ? const Center(
+                      child: Text('No users.',
+                          style: TextStyle(color: AppColors.textMuted)))
+                  : ListView.separated(
+                      controller: _scroll,
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      itemCount:
+                          list.length + (state.hasMore && _query.isEmpty ? 1 : 0),
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) {
+                        if (i >= list.length) {
+                          return const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Center(
+                              child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2.2)),
+                            ),
+                          );
+                        }
+                        return _UserRow(profile: list[i]);
+                      },
+                    ),
         ),
       ],
     );

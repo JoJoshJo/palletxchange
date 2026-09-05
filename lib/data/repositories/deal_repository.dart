@@ -1,11 +1,11 @@
 import '../../models/deal.dart';
 
 abstract interface class DealRepository {
-  /// Deals where the user is buyer, seller, or driver.
-  Future<List<Deal>> getDealsForUser(String userId);
+  /// Deals where the user is buyer, seller, or driver (paged).
+  Future<List<Deal>> getDealsForUser(String userId, {int limit, int offset});
 
-  /// Every deal (admin oversight; RLS admin-bypass).
-  Future<List<Deal>> getAllDeals();
+  /// Every deal (admin oversight; RLS admin-bypass), paged.
+  Future<List<Deal>> getAllDeals({int limit, int offset});
 
   Future<Deal?> getDealById(String id);
 
